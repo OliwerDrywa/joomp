@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@types/bun": "^1.2.13",
     "typescript": "~5.7.2",
     "vite": "^6.1.0"
   },
