@@ -46,6 +46,7 @@ body {
   font-weight: 400;
   font-size: 16px;
   color: #1a1a1a;
+  background-color: #ffffff;
 }
 
 h1,
@@ -153,6 +154,7 @@ textarea {
 @media (prefers-color-scheme: dark) {
   body {
     color: #ddd;
+    background-color: #131313;
   }
 
   #app {
