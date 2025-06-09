@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -30,8 +30,19 @@
       name="description"
       content="A better default search engine (with bangs!)"
     />
+    <style>
+      /* Prevent flash of white background in dark mode */
+      html {
+        background-color: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        html {
+          background-color: #131313;
+        }
+      }
+    </style>
   </head>
-  <body style="background-color: transparent">
+  <body>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
