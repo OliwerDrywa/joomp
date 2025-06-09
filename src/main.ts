@@ -1,4 +1,4 @@
-import { bangs } from "./bang";
+import bangs from "./bangs.min.json";
 import "./global.css";
 
 function noSearchDefaultPageRender() {
