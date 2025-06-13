@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/search.svg" />
+    <link
+      rel="preconnect"
+      href="https://fonts.googleapis.com"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Unduck Dashboard</title>
+    <meta
+      name="description"
+      content="Dashboard for managing your Unduck search bangs"
+    />
+    <style>
+      /* Prevent flash of white background in dark mode */
+      html {
+        background-color: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        html {
+          background-color: #131313;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="dashboard-app"></div>
+    <script type="module" src="/src/dashboard.ts"></script>
+  </body>
+</html>
