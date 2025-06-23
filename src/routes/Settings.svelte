@@ -1,26 +1,16 @@
 <script lang="ts">
   import { link } from "@dvcol/svelte-simple-router";
-  import { onMount } from "svelte";
 
-  let defaultBang = $state("");
-
-  // Load current default bang from localStorage
-  function loadSettings() {
-    defaultBang = localStorage.getItem("default-bang") || "g";
-  }
+  let defaultBang = $state(localStorage?.getItem?.("default-bang") ?? "g");
 
   function saveSettings() {
     if (defaultBang.trim()) {
-      localStorage.setItem("default-bang", defaultBang.trim());
+      localStorage?.setItem?.("default-bang", defaultBang.trim());
       alert(
         "Settings saved! Your new default bang will be used for future searches.",
       );
     }
   }
-
-  onMount(() => {
-    loadSettings();
-  });
 </script>
 
 <main class="settings">
