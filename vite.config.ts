@@ -1,21 +1,31 @@
 import { defineConfig } from "vite";
+import { tanstackRouter } from "@tanstack/router-plugin/vite";
+import solidPlugin from "vite-plugin-solid";
+import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
-import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { resolve } from "path";
 
+// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    svelte(),
-    VitePWA({
-      registerType: "autoUpdate",
-    }),
+    tanstackRouter({ target: "solid", autoCodeSplitting: true }),
+    solidPlugin(),
+    tailwindcss(),
+    VitePWA({ registerType: "autoUpdate" }),
   ],
+
   build: {
     rollupOptions: {
       input: {
-        main: resolve(__dirname, "index.html"),
-        dashboard: resolve(__dirname, "dashboard.html"),
+        spa: resolve(__dirname, "index.html"),
+        redirect: resolve(__dirname, "go.html"),
       },
+    },
+  },
+
+  resolve: {
+    alias: {
+      "@": resolve(__dirname, "./src"),
     },
   },
 });
