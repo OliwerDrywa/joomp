@@ -15,7 +15,6 @@
     "vite": "^6.1.0"
   },
   "dependencies": {
-    "@dvcol/svelte-simple-router": "^2.7.2",
     "svelte": "^5.34.1",
     "vite-plugin-pwa": "^0.21.1"
   }

@@ -4,7 +4,6 @@
     "": {
       "name": "unduck",
       "dependencies": {
-        "@dvcol/svelte-simple-router": "^2.7.2",
         "svelte": "^5.34.1",
         "vite-plugin-pwa": "^0.21.1",
       },
@@ -196,12 +195,6 @@
     "@babel/traverse": ["@babel/traverse@7.27.1", "", { "dependencies": { "@babel/code-frame": "^7.27.1", "@babel/generator": "^7.27.1", "@babel/parser": "^7.27.1", "@babel/template": "^7.27.1", "@babel/types": "^7.27.1", "debug": "^4.3.1", "globals": "^11.1.0" } }, "sha512-ZCYtZciz1IWJB4U61UPu4KEaqyfj+r5T1Q5mqPo+IBpcG9kHv30Z0aD8LXPgC1trYa6rK0orRyAhqUgk4MjmEg=="],
 
     "@babel/types": ["@babel/types@7.27.1", "", { "dependencies": { "@babel/helper-string-parser": "^7.27.1", "@babel/helper-validator-identifier": "^7.27.1" } }, "sha512-+EzkxvLNfiUeKMgy/3luqfsCWFRXLb7U6wNQTk60tovuckwB15B191tJWvpp4HjiQWdJkCxO3Wbvc6jlk3Xb2Q=="],
-
-    "@dvcol/common-utils": ["@dvcol/common-utils@1.33.0", "", { "dependencies": { "pretty-bytes": "^6.1.1", "uuid": "^11.0.5" } }, "sha512-Xjfad5yEBghKCdv4vqAlIzvinHHebo8eFhzkDu3tsSTqhpmw2h1SuwZybrzBSR2lLvD9MC+yMs5R1HRFNhv9Xw=="],
-
-    "@dvcol/svelte-simple-router": ["@dvcol/svelte-simple-router@2.7.2", "", { "dependencies": { "@dvcol/common-utils": "^1.31.2", "@dvcol/svelte-utils": "^1.18.0", "svelte": "^5.33.1" } }, "sha512-n5lyygj6x1rEi66ZKTxeG1tucDL9Mxf20fuefupoKhhvGR5hssjkxlc44tmFAcCXI8B4koDcUDVSJ5ZRfbUMZg=="],
-
-    "@dvcol/svelte-utils": ["@dvcol/svelte-utils@1.18.0", "", { "dependencies": { "@dvcol/common-utils": "^1.31.2", "svelte": "^5.33.1" } }, "sha512-anVrbeioQu9obwINmkXaG7+hNrB/ZISQqgO8wDVpBTIcvPRKw1jyGaeCxy5Mrkfuq2w/qCYccNvB63iHOTtDmg=="],
 
     "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.25.4", "", { "os": "aix", "cpu": "ppc64" }, "sha512-1VCICWypeQKhVbE9oW/sJaAmjLxhVqacdkvPLEjwlttjfwENRSClS8EjBz0KzRyFSCPDIkuXW34Je/vk7zdB7Q=="],
 
@@ -748,8 +741,6 @@
     "upath": ["upath@1.2.0", "", {}, "sha512-aZwGpamFO61g3OlfT7OQCHqhGnW43ieH9WZeP7QxN/G/jS4jfqUkZxoryvJgVPEcrl5NL/ggHsSmLMHuH64Lhg=="],
 
     "update-browserslist-db": ["update-browserslist-db@1.1.3", "", { "dependencies": { "escalade": "^3.2.0", "picocolors": "^1.1.1" }, "peerDependencies": { "browserslist": ">= 4.21.0" }, "bin": { "update-browserslist-db": "cli.js" } }, "sha512-UxhIZQ+QInVdunkDAaiazvvT/+fXL5Osr0JZlJulepYu6Jd7qJtDZjlur0emRlT71EN3ScPoE7gvsuIKKNavKw=="],
-
-    "uuid": ["uuid@11.1.0", "", { "bin": { "uuid": "dist/esm/bin/uuid" } }, "sha512-0/A9rDy9P7cJ+8w1c9WD9V//9Wj15Ce2MPz8Ri6032usz+NfePxx5AcN3bN+r6ZL6jEo066/yNYB3tn4pQEx+A=="],
 
     "vite": ["vite@6.3.5", "", { "dependencies": { "esbuild": "^0.25.0", "fdir": "^6.4.4", "picomatch": "^4.0.2", "postcss": "^8.5.3", "rollup": "^4.34.9", "tinyglobby": "^0.2.13" }, "optionalDependencies": { "fsevents": "~2.3.3" }, "peerDependencies": { "@types/node": "^18.0.0 || ^20.0.0 || >=22.0.0", "jiti": ">=1.21.0", "less": "*", "lightningcss": "^1.21.0", "sass": "*", "sass-embedded": "*", "stylus": "*", "sugarss": "*", "terser": "^5.16.0", "tsx": "^4.8.1", "yaml": "^2.4.2" }, "optionalPeers": ["@types/node", "jiti", "less", "lightningcss", "sass", "sass-embedded", "stylus", "sugarss", "terser", "tsx", "yaml"], "bin": { "vite": "bin/vite.js" } }, "sha512-cZn6NDFE7wdTpINgs++ZJ4N49W2vRp8LCKrn3Ob1kYNtOo21vfDoaV5GzBfLU4MovSAB8uNRm4jgzVQZ+mBzPQ=="],
 

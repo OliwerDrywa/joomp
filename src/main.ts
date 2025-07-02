@@ -1,9 +1,4 @@
-import "./global.css";
-
-const DEFAULT_TRIGGER = "g";
-
 const url = new URL(location.href);
-const hash = url.hash.slice(1).trim() ?? "";
 let query = url.searchParams.get("q")?.trim() ?? "";
 
 // TODO error handling - like https://wix-ux.com/when-life-gives-you-lemons-write-better-error-messages-46c5223e1a2f
@@ -24,19 +19,19 @@ await getRedirectUrl()
       encodeURIComponent(query).replace(/%2F/g, "/"),
     );
   })
-  .catch((err: Error) => `/dashboard${encodeURIComponent(err.message)}`)
+  .catch((err: Error) => `/settings${err.message}`)
   .then((url) => window.location.replace(url));
 
-/**
- * can fail @ JSON.parse()
- */
 async function getBangs(): Promise<Record<string, string>> {
-  const local = localStorage?.getItem?.("foo-bangs");
+  const local = localStorage?.getItem?.("appNameTODO-bangs");
 
   // if local storage is empty, load the default bangs and set it to local storage
   if (!local) {
     const imported = await import("./bangs.min.json");
-    localStorage?.setItem?.("foo-bangs", JSON.stringify(imported.default));
+    localStorage?.setItem?.(
+      "appNameTODO-bangs",
+      JSON.stringify(imported.default),
+    );
     return imported.default;
   }
 
@@ -48,43 +43,44 @@ async function getBangs(): Promise<Record<string, string>> {
 }
 
 async function getRedirectUrl() {
-  if (!query) throw new Error(hash);
+  if (!query) throw new Error(url.hash);
 
   // cut trigger (e.g.: `!gh`) out from query
-  const queryTrigger = query.match(/!(\S+)/i)?.[1]?.toLowerCase();
+  let trigger = query.match(/!(\S+)/i)?.[1]?.toLowerCase() ?? null;
   query = query.replace(/!\S+\s*/i, "").trim();
 
   const bangs = await getBangs();
 
-  if (queryTrigger) {
-    const url = bangs[queryTrigger];
+  if (trigger) {
+    const url = bangs[trigger];
     if (url) return url;
-    else throw new Error("?invalidBang=" + encodeURIComponent(queryTrigger));
+    else throw new Error("?invalidBang=" + encodeURIComponent(trigger));
   }
 
   // user typed an invalid bang, apply a default
-  // where `default = url hash ?? local-storage ?? DEFAULT_BANG`
+  // where `default = url hash ?? local-storage ?? google`
 
   // 1. try bang from localStorage
-  const local = localStorage?.getItem?.("foo-default-bang");
-  if (local) {
-    console.warn(`bang not found, using to local storage bang "${local}"`);
+  trigger = localStorage?.getItem?.("appNameTODO-default-bang");
+  if (trigger) {
+    console.warn(`bang not found, using to local storage bang "${trigger}"`);
 
-    const url = bangs[local];
+    const url = bangs[trigger];
     if (url) return url;
-    else throw new Error("?invalidBang=" + encodeURIComponent(local));
+    else throw new Error("?invalidBang=" + encodeURIComponent(trigger));
   }
 
   // 2. try bang from url hash
-  if (hash) {
-    console.warn(`bang not found. using url hash bang "${hash}"`);
+  trigger = url.hash.slice(1).trim() ?? null;
+  if (trigger) {
+    console.warn(`bang not found. using url hash bang "${trigger}"`);
 
-    const url = bangs[hash];
+    const url = bangs[trigger];
     if (url) return url;
-    else throw new Error("?invalidBang=" + encodeURIComponent(hash));
+    else throw new Error("?invalidBang=" + encodeURIComponent(trigger));
   }
 
   // 3. default to hard-coded bang
-  console.warn(`bang not found. using default bang "${DEFAULT_TRIGGER}"`);
-  return bangs[DEFAULT_TRIGGER];
+  console.warn(`bang not found. defaulting to Google`);
+  return bangs.g;
 }
