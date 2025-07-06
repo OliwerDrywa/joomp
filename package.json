@@ -1,21 +1,31 @@
 {
-  "name": "unduck",
+  "name": "tovia",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
-  },
-  "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^5.1.0",
-    "@types/bun": "^1.2.13",
-    "typescript": "~5.7.2",
-    "vite": "^6.1.0"
+    "dev": "bunx --bun vite --port 3000",
+    "start": "bunx --bun vite --port 3000",
+    "build": "vite build && tsc",
+    "serve": "vite preview",
+    "test": "vitest run"
   },
   "dependencies": {
-    "svelte": "^5.34.1",
-    "vite-plugin-pwa": "^0.21.1"
+    "@tailwindcss/vite": "^4.0.6",
+    "@tanstack/router-plugin": "^1.121.3",
+    "@tanstack/solid-router": "^1.121.3",
+    "@tanstack/solid-router-devtools": "^1.121.3",
+    "@types/pako": "^2.0.3",
+    "arktype": "^2.1.20",
+    "pako": "^2.1.0",
+    "solid-js": "^1.9.4",
+    "tailwindcss": "^4.0.6",
+    "ts-functional-pipe": "^3.1.2"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.18",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.11",
+    "vite-plugin-pwa": "^1.0.1",
+    "vite-plugin-solid": "^2.11.2"
   }
 }
