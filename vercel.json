@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/go",
+      "destination": "/go.html"
+    },
+    {
+      "source": "/((?!api/|_next/|favicon.ico|go\\.html|.*\\..*).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
