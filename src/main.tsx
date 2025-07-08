@@ -1,9 +1,9 @@
 import { RouterProvider, createRouter } from "@tanstack/solid-router";
 import { render } from "solid-js/web";
 import { routeTree } from "./routeTree.gen";
-import { compress, decompress } from "./lib/compression";
-import { parse, stringify } from "./lib/parsing";
 import "./styles.css";
+// import { compress, decompress } from "./lib/compression";
+// import { parse, stringify } from "./lib/parsing";
 
 const router = createRouter({
   routeTree,
@@ -11,32 +11,44 @@ const router = createRouter({
   scrollRestoration: true,
   defaultPreloadStaleTime: 0,
 
-  parseSearch: (s) => {
-    const search = new URLSearchParams(s);
+  // parseSearch: (s) => {
+  //   const search = new URLSearchParams(s);
+  //   const x = {} as Record<string, any>;
 
-    const x = {
-      via: parse(
-        decompress(
-          search.get("via")!,
-          // ?? "eJxtjcEKwyAMhl8omENvg9GH6AMMq0GlbrYaESm--9bKRg87JOEn35dobQB1VstRJggVnjhu933fU2sNDJgQjCfAPs99IhmVvVA8APIglJWMLypX335MxzbP_83KgDVkznM_HSllz2ns4GPLFOsPLlDc4gCPvpJ2UoRozoTTSspJf5v6g65_xTePOldk",
-        ),
-      ),
-    } as Record<string, any>;
+  //   for (const [key, value] of search.entries()) x[key] = value;
 
-    if (search.has("notFound")) x.notFound = search.get("notFound");
+  //   try {
+  //     const via = search.get("via");
+  //     if (!via) throw null;
+  //     x.via = parse(decompress(via));
+  //   } catch {
+  //     // param is missing or malformed
+  //     // use a default value for `via`
+  //     throw new Error("TODO");
+  //   }
 
-    console.log(JSON.stringify(x, null, 2));
-    return x;
-  },
+  //   return x;
+  // },
 
-  stringifySearch: (x) => {
-    const search = new URLSearchParams();
+  // stringifySearch: (x) => {
+  //   const search = new URLSearchParams();
 
-    if (x.notFound) search.set("notFound", x.notFound);
-    search.set("via", compress(stringify(x.via)));
+  //   for (const key in x) search.set(key, x[key]);
 
-    return "?" + search.toString();
-  },
+  //   try {
+  //     const via = x.via;
+  //     if (!via) throw null;
+  //     search.set("via", compress(stringify(x.via)));
+  //   } catch {
+  //     // param is missing or malformed
+  //     // use a default value for `via`
+  //     throw new Error("TODO");
+  //   }
+
+  //   const searchStr = search.toString();
+  //   if (!searchStr) return "";
+  //   return "?" + searchStr;
+  // },
 });
 
 declare module "@tanstack/solid-router" {

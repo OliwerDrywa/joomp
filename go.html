@@ -20,11 +20,14 @@
       }
     </style>
   </head>
+
   <body>
     <script type="module">
       // @ts-check
-      import { getRedirectUrl } from "/src/lib/redirect.ts";
-      window.location.replace(getRedirectUrl());
+      import { getSearchParams, getRedirectUrl } from "/src/lib/redirect.ts";
+      const search = getSearchParams();
+      const url = getRedirectUrl(search);
+      window.location.replace(url);
     </script>
   </body>
 </html>

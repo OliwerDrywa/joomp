@@ -1,47 +1,25 @@
-import { produce } from "solid-js/store";
-
 const URL_MARK = "/";
 
-export function stringify(value: string[][]): string {
-  return addPrefixes(value)
-    .map((row) => {
-      // row[row.length - 1] = URL_MARK + row[row.length - 1];
-      return row.join(",");
-    })
+export type RedirectData = { triggers: string[]; url: string };
+
+export function stringify(redirectMap: RedirectData[]): string {
+  return redirectMap
+    .map(({ triggers, url }) => triggers.join(",") + "," + URL_MARK + url)
     .join(",");
 }
 
-export function parse(value: string): string[][] {
-  const temp = [[]] as string[][];
+export function parse(str: string): RedirectData[] {
+  const redirectMap = [] as RedirectData[];
+  let triggers = [] as RedirectData["triggers"];
 
-  for (const part of value.split(",")) {
+  for (const part of str.split(",")) {
     if (part.startsWith(URL_MARK)) {
-      temp.at(-1)!.push(part);
-      temp.push([]);
+      redirectMap.push({ triggers, url: part.slice(URL_MARK.length) });
+      triggers = [];
     } else {
-      temp.at(-1)!.push(part);
+      triggers.push(part);
     }
   }
 
-  return removePrefixes(temp.slice(0, -1));
-}
-
-function removePrefixes(list: string[][]): string[][] {
-  return list.map(
-    produce((row) => {
-      if (row[row.length - 1]?.startsWith(URL_MARK)) {
-        row[row.length - 1] = row[row.length - 1].slice(URL_MARK.length);
-      }
-    }),
-  );
-}
-
-function addPrefixes(list: string[][]): string[][] {
-  return list.map(
-    produce((row) => {
-      if (!row[row.length - 1]?.startsWith(URL_MARK)) {
-        row[row.length - 1] = URL_MARK + row[row.length - 1];
-      }
-    }),
-  );
+  return redirectMap;
 }

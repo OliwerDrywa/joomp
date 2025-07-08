@@ -1,11 +1,11 @@
 import { decompress } from "@/lib/compression";
 
-function getSearchParams() {
+export function getSearchParams() {
   const search = new URL(location.href).searchParams;
   return { to: search.get("to"), via: search.get("via") };
 }
 
-export function getRedirectUrl(search = getSearchParams()) {
+export function getRedirectUrl(search: ReturnType<typeof getSearchParams>) {
   if (!search.to || !search.via) return "/";
 
   // cut trigger (e.g.: `!gh`) out from query
