@@ -1,8 +1,8 @@
 import { decompress } from "@/lib/compression";
 
 export function getSearchParams() {
-  const search = new URL(location.href).searchParams;
-  return { to: search.get("to"), via: search.get("via") };
+  const params = new URL(location.href).searchParams;
+  return { to: params.get("to"), via: params.get("via") };
 }
 
 export function getRedirectUrl(search: ReturnType<typeof getSearchParams>) {

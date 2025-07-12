@@ -4,6 +4,7 @@ export type RedirectData = { triggers: string[]; url: string };
 
 export function stringify(redirectMap: RedirectData[]): string {
   return redirectMap
+    .filter(({ triggers, url }) => triggers.length > 0 && url)
     .map(({ triggers, url }) => triggers.join(",") + "," + URL_MARK + url)
     .join(",");
 }

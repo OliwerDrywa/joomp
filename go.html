@@ -5,18 +5,14 @@
     <link rel="icon" type="image/svg+xml" href="/search.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <title>bang!</title>
+    <title>➜ ...</title>
     <meta name="description" content="TODO" />
 
     <style>
       /* prevents flash of white background in dark mode */
+      @reference "./src/styles.css";
       html {
-        background-color: #ffffff;
-      }
-      @media (prefers-color-scheme: dark) {
-        html {
-          background-color: #131313;
-        }
+        @apply bg-neutral-200 dark:bg-neutral-900;
       }
     </style>
   </head>
@@ -25,8 +21,9 @@
     <script type="module">
       // @ts-check
       import { getSearchParams, getRedirectUrl } from "/src/lib/redirect.ts";
-      const search = getSearchParams();
-      const url = getRedirectUrl(search);
+      const params = getSearchParams();
+      const url = getRedirectUrl(params);
+      document.title = `➜ ${new URL(url).hostname}`;
       window.location.replace(url);
     </script>
   </body>

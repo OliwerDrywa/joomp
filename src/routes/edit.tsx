@@ -1,30 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/solid-router";
-import { type } from "arktype";
-import { createEffect, createSignal, For } from "solid-js";
+import { createEffect, createMemo, createSignal, For } from "solid-js";
 import { createStore } from "solid-js/store";
-import { getRedirectUrl } from "@/lib/redirect";
 import { compress, decompress } from "@/lib/compression";
 import { stringify, parse, type RedirectData } from "@/lib/parsing";
 
-const URL = import.meta.env.DEV ? "http://localhost:3000" : "some url";
-
 export const Route = createFileRoute("/edit")({
   component: IndexComponent,
-  validateSearch: type({ via: "string", "notFound?": "string" }),
 });
 
 function IndexComponent() {
   const params = Route.useSearch();
 
-  return (
-    <main class="mx-auto flex max-w-4xl flex-col gap-4 p-4 dark:text-white">
-      <Examples />
-      <RedirectEditor via={params().via} />
-      <UrlPreview url={URL + "/go?to=%s&via=" + params().via} />
-
-      <RedirectTester via={params().via} />
-    </main>
-  );
+  return <RichRedirectEditor redirects={parse(decompress(params().via))} />;
 }
 
 function Examples() {
@@ -60,8 +47,16 @@ function Examples() {
                 url: "youtube.com/results?search_query={{{s}}}",
               },
               {
-                triggers: ["w", "wiki"],
+                triggers: ["wiki"],
                 url: "wikipedia.org/wiki/Special:Search?search={{{s}}}",
+              },
+              {
+                triggers: ["w"],
+                url: "duckduckgo.com/?q=weather+{{{s}}}",
+              },
+              {
+                triggers: ["r/"],
+                url: "reddit.com/r/{{{s}}}",
               },
             ]),
           ),
@@ -70,141 +65,6 @@ function Examples() {
         default
       </Link>
     </nav>
-  );
-}
-
-function createEditorStore() {
-  const [focus, setFocus] = createSignal(0);
-  const [rows, setRows] = createStore<RedirectData[]>([
-    { triggers: [], url: "" },
-  ]);
-
-  createEffect(() => {
-    for (let i = 0; i < rows.length - 1; i++) {
-      if (rows[i].triggers.length === 0 && !rows[i].url && focus() !== i) {
-        setRows(rows.slice(0, i).concat(rows.slice(i + 1)));
-        i--;
-      }
-    }
-  });
-
-  createEffect(() => {
-    const lastRow = rows.at(-1);
-    if (!lastRow) return;
-    if (lastRow.triggers.length > 0 || lastRow.url) {
-      setRows(rows.length, { triggers: [], url: "" });
-    }
-  });
-
-  return { rows, setRows, setFocus };
-}
-
-function RedirectEditor(props: { via: string }) {
-  const { rows, setRows, setFocus } = createEditorStore();
-
-  createEffect(() => {
-    // update editor when `?via=...` changes
-    setRows([...parse(decompress(props.via)), { triggers: [], url: "" }]);
-  });
-
-  // TODO
-  // - onInput create a new row if the last row is not empty
-  //
-  // - add validation for duplicate triggers and URLs
-  // - prettify
-  //
-  // - different types of compression??
-  // - url length preview
-
-  // // Helper function to check for duplicate triggers
-  // const getDuplicateTriggers = () => {
-  //   const triggerCounts = new Map<string, number[]>();
-
-  //   rows.forEach((row, rowIndex) => {
-  //     row.triggers.forEach((trigger) => {
-  //       if (trigger) {
-  //         if (!triggerCounts.has(trigger)) {
-  //           triggerCounts.set(trigger, []);
-  //         }
-  //         triggerCounts.get(trigger)!.push(rowIndex);
-  //       }
-  //     });
-  //   });
-
-  //   return triggerCounts;
-  // };
-
-  // // Helper function to check for duplicate URLs
-  // const getDuplicateUrls = () => {
-  //   const urlCounts = new Map<string, number[]>();
-
-  //   rows.forEach((row, rowIndex) => {
-  //     if (row.url) {
-  //       if (!urlCounts.has(row.url)) {
-  //         urlCounts.set(row.url, []);
-  //       }
-  //       urlCounts.get(row.url)!.push(rowIndex);
-  //     }
-  //   });
-
-  //   const duplicates = new Set<number>();
-  //   urlCounts.forEach((rowIndices) => {
-  //     if (rowIndices.length > 1) {
-  //       rowIndices.forEach((index) => duplicates.add(index));
-  //     }
-  //   });
-
-  //   return duplicates;
-  // };
-
-  // const duplicateTriggerRows = getDuplicateTriggers();
-  // const duplicateUrlRows = getDuplicateUrls();
-
-  return (
-    <fieldset class="flex h-96 flex-col gap-2 overflow-y-auto py-2">
-      <For each={rows}>
-        {(row, i) => (
-          <span class="flex items-center gap-2 px-2">
-            <input
-              class={"w-64 px-2"}
-              type="text"
-              placeholder="triggers (comma-separated)"
-              value={row.triggers.join(", ")}
-              onFocus={() => setFocus(i())}
-              onChange={(e) => {
-                const newTriggers = e.currentTarget.value
-                  .split(",")
-                  .map((t) => t.trim())
-                  .filter(Boolean);
-
-                setRows(i(), "triggers", newTriggers);
-              }}
-            />
-            ➜
-            <input
-              class={"flex-1 px-2"}
-              type="text"
-              placeholder="redirect URL (use `{{{s}}}` as placeholder for search queries)"
-              value={row.url}
-              onFocus={() => setFocus(i())}
-              onChange={(e) => {
-                const newUrl = e.currentTarget.value.trim();
-
-                if (row.url === newUrl) {
-                  // we have to trim the input manually here
-                  // because setRows will not trigger a re-render
-                  // if the string is the same before and after
-                  e.currentTarget.value = newUrl;
-                  return;
-                }
-
-                setRows(i(), "url", newUrl);
-              }}
-            />
-          </span>
-        )}
-      </For>
-    </fieldset>
   );
 }
 
@@ -239,38 +99,187 @@ function UrlPreview(props: { url: string }) {
   );
 }
 
-function RedirectTester(props: { via: string }) {
-  const [testQuery, setTestQuery] = createSignal(
-    "!g <search-term>\n!yt\n!wiki url\n!w\n!foo",
+enum Compression {
+  None,
+  LZString,
+  Pako,
+}
+class Enum {
+  static keys(e: Record<any, any>) {
+    const ks = Object.keys(e);
+    return ks.slice(ks.length / 2, ks.length) as (keyof typeof Compression)[];
+  }
+  static values(e: Record<any, any>): number[] {
+    const vs = Object.values(e);
+    return vs.slice(vs.length / 2, vs.length);
+  }
+}
+
+function RichRedirectEditor(props: { redirects: RedirectData[] }) {
+  const navigate = Route.useNavigate();
+
+  const [rows, setRows] = createStore<RedirectData[]>([
+    ...props.redirects,
+    { triggers: [], url: "" },
+  ]);
+
+  // update editor `props.redirects` changes
+  createEffect(() => setRows([...props.redirects, { triggers: [], url: "" }]));
+
+  const [focus, setFocus] = createSignal<number>();
+  const [search, setSearch] = createSignal("");
+  const [compression, setCompression] = createSignal(Compression.Pako);
+
+  // TODO - implement a bettwe fuzzy search or use a library
+  const filteredRows = createMemo(() =>
+    rows.filter((row: RedirectData) => {
+      const s = search().toLowerCase();
+      if (!s) return true; // return all rows if we're not searching
+
+      for (const term of [...row.triggers, row.url]) {
+        let searchIndex = 0;
+
+        const t = term.toLowerCase();
+
+        for (let i = 0; i < t.length && searchIndex < s.length; i++) {
+          if (t[i] === s[searchIndex]) searchIndex++;
+        }
+
+        if (searchIndex === s.length) return true;
+      }
+
+      return false;
+    }),
   );
 
-  return (
-    <details class="w-full px-2">
-      <summary class="w-full py-2 text-center">
-        <p class="inline text-lg">
-          Preview your redirects with different queries here.
-        </p>
-      </summary>
+  createEffect(() => {
+    for (let i = 0; i < rows.length - 1; i++) {
+      if (rows[i].triggers.length === 0 && !rows[i].url && focus() !== i) {
+        setRows(rows.slice(0, i).concat(rows.slice(i + 1)));
+        i--;
+      }
+    }
+  });
 
-      <div class="flex h-64 gap-2">
-        <textarea
-          class="h-full flex-1 rounded border border-gray-300 p-2"
-          value={testQuery()}
-          onInput={(e) => setTestQuery(e.currentTarget.value)}
-        />
-        ➜
-        <div class="flex h-full flex-2 flex-col overflow-x-scroll rounded border border-gray-300 p-2">
-          <For
-            each={testQuery()
-              .split("\n")
-              .map((line) => line.trim())
-              .filter(Boolean)
-              .map((to) => getRedirectUrl({ to, via: props.via }))}
+  createEffect(() => {
+    const lastRow = rows.at(-1);
+    if (!lastRow) return;
+    if (lastRow.triggers.length > 0 || lastRow.url) {
+      setRows(rows.length, { triggers: [], url: "" });
+    }
+  });
+
+  return (
+    <>
+      <fieldset class="flex-1 overflow-scroll border p-2 dark:border-gray-400">
+        <legend class="flex max-w-[100dvw] flex-row justify-between gap-4">
+          <input
+            class="border p-2 dark:border-gray-400"
+            type="search"
+            placeholder="Find bang or URL"
+            value={search()}
+            onInput={(e) => setSearch(e.currentTarget.value.trim())}
+          />
+
+          <label class="flex cursor-not-allowed items-center gap-3 border p-2 dark:border-gray-400">
+            <span>Compression:</span>
+            <select
+              disabled
+              name="compression"
+              class="bg-gray-200 dark:bg-neutral-900 dark:text-gray-400"
+            >
+              <For each={Enum.keys(Compression)}>
+                {(c) => (
+                  <option
+                    value={c}
+                    selected={compression() === Compression[c]}
+                    // onChange={() => setCompression(Compression[c])}
+                  >
+                    {c}
+                  </option>
+                )}
+              </For>
+            </select>
+          </label>
+
+          <button
+            class="cursor-pointer border p-2 disabled:cursor-not-allowed disabled:text-gray-400 dark:border-gray-400"
+            disabled={stringify(rows) === stringify(props.redirects)}
+            onClick={() => {
+              setRows([...props.redirects, { triggers: [], url: "" }]);
+            }}
           >
-            {(url) => <span class="flex gap-2 text-nowrap">{url}</span>}
-          </For>
-        </div>
-      </div>
-    </details>
+            Undo
+          </button>
+
+          <button
+            class="cursor-pointer border p-2 disabled:cursor-not-allowed disabled:text-gray-400 dark:border-gray-400"
+            disabled={stringify(rows) === stringify(props.redirects)}
+            onClick={() => {
+              navigate({
+                to: "/edit",
+                search: { via: compress(stringify(rows)) },
+              });
+            }}
+          >
+            Save to URL
+          </button>
+        </legend>
+
+        <For each={filteredRows()}>
+          {(row, i) => (
+            <span class="flex px-2">
+              <input
+                class="w-0 max-w-32 flex-1"
+                type="text"
+                // comma separated list of triggers
+                placeholder="triggers"
+                value={row.triggers.join(", ")}
+                onFocus={() => setFocus(i())}
+                onBlur={() => setFocus((f) => (f === i() ? undefined : f))}
+                onChange={(e) => {
+                  const newTriggers = e.currentTarget.value
+                    .split(",")
+                    .map((t) => t.trim())
+                    .filter(Boolean);
+
+                  setRows(i(), "triggers", newTriggers);
+                }}
+              />
+              <label class="flex w-0 flex-3 dark:text-gray-500">
+                <span class="px-2 dark:text-gray-200">➜</span>
+                <span class="hidden sm:block">https://</span>
+                <input
+                  class="w-0 flex-1 dark:text-gray-200"
+                  type="text"
+                  // (use `{{{s}}}` as placeholder for search queries)
+                  placeholder="domain.com/?={{{s}}}"
+                  value={row.url}
+                  onFocus={() => setFocus(i())}
+                  onBlur={() => setFocus((f) => (f === i() ? undefined : f))}
+                  onChange={(e) => {
+                    const newUrl = e.currentTarget.value.trim();
+
+                    if (row.url === newUrl) {
+                      // we have to trim the input manually here
+                      // because setRows will not trigger a re-render
+                      // if the string is the same before and after
+                      e.currentTarget.value = newUrl;
+                      return;
+                    }
+
+                    setRows(i(), "url", newUrl);
+                  }}
+                />
+              </label>
+            </span>
+          )}
+        </For>
+      </fieldset>
+
+      <UrlPreview
+        url={location.origin + "/go?to=%s&via=" + compress(stringify(rows))}
+      />
+    </>
   );
 }
