@@ -1,29 +1,24 @@
 import { createFileRoute, Link } from "@tanstack/solid-router";
-import { type } from "arktype";
 import { createEffect, createSignal, For } from "solid-js";
 import { createStore } from "solid-js/store";
-import { getRedirectUrl } from "@/lib/redirect";
 import { compress, decompress } from "@/lib/compression";
 import { stringify, parse, type RedirectData } from "@/lib/parsing";
 
-const URL = import.meta.env.DEV ? "http://localhost:3000" : "some url";
-
 export const Route = createFileRoute("/edit")({
   component: IndexComponent,
-  validateSearch: type({ via: "string", "notFound?": "string" }),
 });
 
 function IndexComponent() {
   const params = Route.useSearch();
 
   return (
-    <main class="mx-auto flex max-w-4xl flex-col gap-4 p-4 dark:text-white">
-      <Examples />
+    <>
       <RedirectEditor via={params().via} />
-      <UrlPreview url={URL + "/go?to=%s&via=" + params().via} />
-
-      <RedirectTester via={params().via} />
-    </main>
+      <Examples />
+      <UrlPreview
+        url={window.location.origin + "/go?to=%s&via=" + params().via}
+      />
+    </>
   );
 }
 
@@ -60,8 +55,16 @@ function Examples() {
                 url: "youtube.com/results?search_query={{{s}}}",
               },
               {
-                triggers: ["w", "wiki"],
+                triggers: ["wiki"],
                 url: "wikipedia.org/wiki/Special:Search?search={{{s}}}",
+              },
+              {
+                triggers: ["w"],
+                url: "duckduckgo.com/?q=weather+{{{s}}}",
+              },
+              {
+                triggers: ["r/"],
+                url: "reddit.com/r/{{{s}}}",
               },
             ]),
           ),
@@ -73,7 +76,7 @@ function Examples() {
   );
 }
 
-function createEditorStore() {
+function RedirectEditor(props: { via: string }) {
   const [focus, setFocus] = createSignal(0);
   const [rows, setRows] = createStore<RedirectData[]>([
     { triggers: [], url: "" },
@@ -95,12 +98,6 @@ function createEditorStore() {
       setRows(rows.length, { triggers: [], url: "" });
     }
   });
-
-  return { rows, setRows, setFocus };
-}
-
-function RedirectEditor(props: { via: string }) {
-  const { rows, setRows, setFocus } = createEditorStore();
 
   createEffect(() => {
     // update editor when `?via=...` changes
@@ -161,12 +158,12 @@ function RedirectEditor(props: { via: string }) {
   // const duplicateUrlRows = getDuplicateUrls();
 
   return (
-    <fieldset class="flex h-96 flex-col gap-2 overflow-y-auto py-2">
+    <fieldset class="flex h-96 w-full flex-col gap-2 overflow-y-auto py-2">
       <For each={rows}>
         {(row, i) => (
           <span class="flex items-center gap-2 px-2">
             <input
-              class={"w-64 px-2"}
+              class="w-64 px-2"
               type="text"
               placeholder="triggers (comma-separated)"
               value={row.triggers.join(", ")}
@@ -182,7 +179,7 @@ function RedirectEditor(props: { via: string }) {
             />
             ➜
             <input
-              class={"flex-1 px-2"}
+              class="flex-1 px-2"
               type="text"
               placeholder="redirect URL (use `{{{s}}}` as placeholder for search queries)"
               value={row.url}
@@ -204,6 +201,21 @@ function RedirectEditor(props: { via: string }) {
           </span>
         )}
       </For>
+
+      <Link
+        to="/edit"
+        search={{
+          via: compress(stringify(rows)),
+        }}
+      >
+        <button>Save to URL</button>
+      </Link>
+
+      {/* <UrlPreview
+        url={
+          window.location.origin + "/go?to=%s&via=" + compress(stringify(rows))
+        }
+      /> */}
     </fieldset>
   );
 }
@@ -236,41 +248,5 @@ function UrlPreview(props: { url: string }) {
         />
       </button>
     </div>
-  );
-}
-
-function RedirectTester(props: { via: string }) {
-  const [testQuery, setTestQuery] = createSignal(
-    "!g <search-term>\n!yt\n!wiki url\n!w\n!foo",
-  );
-
-  return (
-    <details class="w-full px-2">
-      <summary class="w-full py-2 text-center">
-        <p class="inline text-lg">
-          Preview your redirects with different queries here.
-        </p>
-      </summary>
-
-      <div class="flex h-64 gap-2">
-        <textarea
-          class="h-full flex-1 rounded border border-gray-300 p-2"
-          value={testQuery()}
-          onInput={(e) => setTestQuery(e.currentTarget.value)}
-        />
-        ➜
-        <div class="flex h-full flex-2 flex-col overflow-x-scroll rounded border border-gray-300 p-2">
-          <For
-            each={testQuery()
-              .split("\n")
-              .map((line) => line.trim())
-              .filter(Boolean)
-              .map((to) => getRedirectUrl({ to, via: props.via }))}
-          >
-            {(url) => <span class="flex gap-2 text-nowrap">{url}</span>}
-          </For>
-        </div>
-      </div>
-    </details>
   );
 }
