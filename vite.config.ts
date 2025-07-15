@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import solidPlugin from "vite-plugin-solid";
 import tailwindcss from "@tailwindcss/vite";
-import { VitePWA } from "vite-plugin-pwa";
+// import { VitePWA } from "vite-plugin-pwa";
 import { resolve } from "path";
 
 // https://vitejs.dev/config/
@@ -11,7 +11,7 @@ export default defineConfig({
     tanstackRouter({ target: "solid", autoCodeSplitting: true }),
     solidPlugin(),
     tailwindcss(),
-    VitePWA({ registerType: "autoUpdate" }),
+    // VitePWA({ registerType: "autoUpdate" }),
   ],
 
   build: {

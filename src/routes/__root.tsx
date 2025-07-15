@@ -2,11 +2,10 @@ import {
   Link,
   Outlet,
   createRootRouteWithContext,
-  useSearch,
 } from "@tanstack/solid-router";
 import { TanStackRouterDevtools } from "@tanstack/solid-router-devtools";
 import { type } from "arktype";
-// @ts-ignore -- directives, even when used, are not recognized by typescript
+// @ts-ignore -- directives get marked as unused variables
 import { getStyles, pixelsAnimation } from "@/lib/pixelAnimations";
 
 export const Route = createRootRouteWithContext()({
@@ -18,11 +17,11 @@ export const Route = createRootRouteWithContext()({
 });
 
 function RootComponent() {
-  const search = useSearch({ strict: false });
+  const search = Route.useSearch();
 
   return (
     <>
-      <div class="mx-auto flex min-h-[100dvh] max-w-3xl flex-col gap-[6dvh] pt-8 pb-2 text-lg text-gray-700 dark:text-gray-200">
+      <div class="mx-auto flex h-[100dvh] max-w-3xl flex-col gap-[6dvh] pt-8 pb-2 text-lg text-gray-700 dark:text-gray-200">
         <header class="mx-auto">
           <AsciiTitle />
 
@@ -40,7 +39,7 @@ function RootComponent() {
         </header>
 
         <main
-          class="mx-auto flex flex-1 flex-col gap-[4dvh] px-6"
+          class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-[4dvh] overflow-y-scroll"
           style="view-transition-name: main-content;"
         >
           <Outlet />

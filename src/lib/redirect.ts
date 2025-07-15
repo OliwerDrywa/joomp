@@ -8,25 +8,25 @@ export function getSearchParams() {
 export function getRedirectUrl(search: ReturnType<typeof getSearchParams>) {
   if (!search.to || !search.via) return "/";
 
-  // cut trigger (e.g.: `!gh`) out from query
-  const trigger = search.to.match(/!(\S+)/i)?.[1]?.toLowerCase();
+  // cut bang (e.g.: `!gh`) out from query
+  const bang = search.to.match(/!(\S+)/i)?.[1]?.toLowerCase();
   const query = search.to.replace(/!\S+\s*/i, "").trim(); // could be ""
 
   const via = decompress(search.via);
 
   const url = (() => {
-    // find trigger in `via`
-    // if no trigger or first trigger, use the first url in the list
+    // find bang in `via`
+    // if no bang or first bang, use the first url in the list
     const i = (() => {
-      if (!trigger) return 0;
-      if (via.startsWith(trigger + ",")) return 0;
-      return via.indexOf("," + trigger + ",");
+      if (!bang) return 0;
+      if (via.startsWith(bang + ",")) return 0;
+      return via.indexOf("," + bang + ",");
     })();
 
     if (i === -1) {
-      // if the trigger does not exist in the provided map
+      // if the bang does not exist in the provided map
       // redirect to edit page with notFound parameter
-      return "/edit?notFound=" + trigger + "&via=" + search.via;
+      return "/edit?notFound=" + bang + "&via=" + search.via;
     }
 
     // after `position`, find next url between "//" and the following ","
