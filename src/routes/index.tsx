@@ -73,6 +73,7 @@ function IndexComponent() {
               There is a limit on characters in the URL. From the testing I've
               done, the limit is about ~500 different redirects (when compressed
               with Pako), but your mileage may vary depending on the browser you
+              use, how long your URLs are, and what compression algorithm you
               use.
             </p>
           </li>

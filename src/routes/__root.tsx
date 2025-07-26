@@ -5,14 +5,17 @@ import {
 } from "@tanstack/solid-router";
 import { TanStackRouterDevtools } from "@tanstack/solid-router-devtools";
 import { type } from "arktype";
-// @ts-ignore -- directives get marked as unused variables
+// @ts-ignore -- pixelsAnimation directive is used but gets marked as unused variable
 import { getStyles, pixelsAnimation } from "@/lib/pixelAnimations";
+
+const DEFAULT_REDIRECT_MAP =
+  "2CbDmD5gVwYwa2vUB7AdDZBbA9AfgI4C8A3qQM4C-VANBCsqADYCm49Tz6W2ZzAhgCcYACwIlyVCtQAuAZnBz0wvtOwA7ZgHcxpYpRqhhbAJbThUAEZccvQSJ0SaAT2ngnyKNMucMOAczIoRmkyXFshYQB9fChmASdxPUlqTWM4Y3BU9IAHZmBjPlRkAVBsLONsAGVcmALGAC5K_giw5pFE_SlNSFgEXpRrPCJNfjM4gGpdTuoBcH8QU0GBbCnJIA";
 
 export const Route = createRootRouteWithContext()({
   component: RootComponent,
   validateSearch: type({
-    via: "string = 'eJwDAAAAAAE'",
-    "notFound?": "string",
+    "q?": "string",
+    b: `string = '${DEFAULT_REDIRECT_MAP}'`,
   }),
 });
 
@@ -21,7 +24,7 @@ function RootComponent() {
 
   return (
     <>
-      <div class="mx-auto flex h-[100dvh] max-w-3xl flex-col gap-[6dvh] pt-8 pb-2 text-lg text-gray-700 dark:text-gray-200">
+      <div class="mx-auto flex min-h-[100dvh] max-w-3xl flex-col gap-[6dvh] pt-8 pb-2 text-lg text-neutral-700 dark:text-neutral-200">
         <header class="mx-auto">
           <AsciiTitle />
 
@@ -39,7 +42,7 @@ function RootComponent() {
         </header>
 
         <main
-          class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-[4dvh] overflow-y-scroll"
+          class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-[4dvh]"
           style="view-transition-name: main-content;"
         >
           <Outlet />

@@ -18,7 +18,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         spa: resolve(__dirname, "index.html"),
-        redirect: resolve(__dirname, "go.html"),
+        redirect: resolve(__dirname, "x.html"),
       },
     },
   },

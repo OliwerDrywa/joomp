@@ -19,12 +19,8 @@
 
   <body>
     <script type="module">
-      // @ts-check
-      import { getSearchParams, getRedirectUrl } from "/src/lib/redirect.ts";
-      const params = getSearchParams();
-      const url = getRedirectUrl(params);
-      document.title = `➜ ${new URL(url).hostname}`;
-      window.location.replace(url);
+      import redirect from "/src/lib/redirect.ts";
+      await redirect();
     </script>
   </body>
 </html>
