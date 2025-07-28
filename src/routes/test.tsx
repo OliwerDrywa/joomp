@@ -21,12 +21,12 @@ function RedirectTester(props: { bangs: string }) {
   return (
     <div class="flex h-64 max-w-3xl gap-2">
       <textarea
-        class="flex-1 rounded border border-neutral-300 p-2"
+        class="flex-1 border border-neutral-300 p-2"
         value={testQuery()}
         onInput={(e) => setTestQuery(e.currentTarget.value)}
       />
       ➜
-      <div class="flex flex-2 flex-col overflow-x-scroll rounded border border-neutral-300 p-2">
+      <div class="flex flex-2 flex-col overflow-x-scroll border border-neutral-300 p-2">
         <For
           each={testQuery()
             .split("\n")
