@@ -1,5 +1,5 @@
 import { expect, test, describe } from "bun:test";
-import { compress, decompress, Compression } from "./compression";
+import { compress, decompress, Compression } from "@/lib/compression";
 
 describe("Compression utilities", () => {
   const testString = "Hello, World!";

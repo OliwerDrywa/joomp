@@ -29,3 +29,11 @@ lerna-debug.log*
 
 pre-processing/*
 
+/test-results/
+/tests/coverage-report
+.local-browsers/
+/.dev_profile*
+playwright-report
+/tests/installation/output/
+/tests/installation/.registry.json
+playwright.env

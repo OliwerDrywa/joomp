@@ -1,5 +1,5 @@
 import { deflate, inflate } from "pako";
-import { compressToBase64, decompressFromBase64 } from "lz-string";
+import LZString from "lz-string";
 
 export enum Compression {
   None = ">",
@@ -16,13 +16,16 @@ export function compress(str: string, method: Compression) {
     case Compression.Base64:
       return (
         method +
-        btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "")
+        btoa(String.fromCharCode(...new TextEncoder().encode(str)))
+          .replace(/\+/g, "-")
+          .replace(/\//g, "_")
+          .replace(/=/g, "")
       );
 
     case Compression.LZString:
       return (
         method +
-        compressToBase64(str)
+        LZString.compressToBase64(str)
           .replace(/\+/g, "-")
           .replace(/\//g, "_")
           .replace(/=/g, "")
@@ -63,10 +66,13 @@ export function decompress(str: string): [str: string, method: Compression] {
       return [data, Compression.None];
 
     case Compression.Base64: // Base64 only
-      return [atob(base64), Compression.Base64];
+      // Decode base64 to binary string, then convert to UTF-8
+      const binaryString = atob(base64);
+      const bytes = Uint8Array.from(binaryString, (c) => c.charCodeAt(0));
+      return [new TextDecoder().decode(bytes), Compression.Base64];
 
     case Compression.LZString: // LZ-String
-      return [decompressFromBase64(base64), Compression.LZString];
+      return [LZString.decompressFromBase64(base64), Compression.LZString];
 
     case Compression.Gzip: // Pako
       return [

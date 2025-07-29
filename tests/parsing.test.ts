@@ -1,5 +1,5 @@
 import { expect, test, describe } from "bun:test";
-import { stringify, parse, type RedirectData } from "./parsing";
+import { stringify, parse, type RedirectData } from "@/lib/parsing";
 
 describe("Parsing utilities", () => {
   describe("stringify", () => {

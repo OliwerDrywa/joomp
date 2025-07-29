@@ -4,6 +4,10 @@
     "**/*.tsx",
     "**/*.html"
   ],
+  "exclude": [
+    "tests/**/*",
+    "benchmark/**/*"
+  ],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "preserve",

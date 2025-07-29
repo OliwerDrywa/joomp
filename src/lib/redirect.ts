@@ -1,5 +1,3 @@
-import { Compression } from "./compression";
-
 export default async function redirect() {
   const params = new URLSearchParams(location.search);
 

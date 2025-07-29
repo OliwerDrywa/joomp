@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { getRedirectUrl } from "./redirect";
+import { getRedirectUrl } from "@/lib/redirect";
 
 // Mock location for tests
 const mockLocation = {
