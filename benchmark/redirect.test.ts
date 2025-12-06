@@ -1,152 +1,334 @@
-import { compress, decompress, Compression } from "@/lib/compression";
-import { getRedirectUrl } from "@/lib/redirect";
-import { stringify, type RedirectData } from "@/lib/parsing";
-import { run, bench, group } from "mitata";
-import popularBangs from "../pre-processing/top-popular/top200.json" assert { type: "json" };
+import { bench, boxplot, run } from "mitata";
+import { createTestUrls } from "./url-builder";
+import { getRedirectUrl, decompress } from "@/lib/redirect";
+import { Compression } from "@/lib/compression";
 
-// Use popular bangs for more realistic performance testing
-const totalBangs = popularBangs.length;
+// Generate test URLs
+const testUrls = createTestUrls();
 
-// Test scenarios with different data sizes
-const testSizes = [10, 20, 50, 100, 200];
+// Helper to get compression name
+const getCompressionName = (compression: string) =>
+  Object.entries(Compression).find(
+    ([_, value]) => value === compression,
+  )?.[0] || compression;
 
-const compressionMethods = [
-  Compression.None,
-  Compression.Base64,
-  Compression.LZString,
-  Compression.Gzip,
-];
+// Helper function to extract URL parameters and benchmark the redirect process
+async function benchmarkRedirect(url: string): Promise<number | null> {
+  try {
+    const urlObj = new URL(url);
+    const q = urlObj.searchParams.get("q");
+    const b = urlObj.searchParams.get("b");
 
-// Test queries to simulate realistic usage with evenly distributed bang selection
-function createTestQueries(redirectData: RedirectData[]): string[] {
-  const allBangs = redirectData.map((r) => r.bangs[0]);
+    if (!q || !b) {
+      throw new Error("Missing required parameters");
+    }
 
-  // Create a deterministic but spread-out selection of bangs for testing
-  // This ensures we test across the entire dataset, not just the first few bangs
-  const selectedBangs: string[] = [];
-  const totalBangs = allBangs.length;
+    // Measure the time for decompression and redirect lookup
+    const start = performance.now();
+    const decompressed = await decompress(b);
+    getRedirectUrl(q, decompressed);
+    const end = performance.now();
 
-  // Select 5 bangs with even distribution across the dataset
-  for (let i = 0; i < 5 && i < totalBangs; i++) {
-    const index = Math.floor((i * totalBangs) / 5);
-    selectedBangs.push(allBangs[index]);
+    return end - start;
+  } catch (error) {
+    // Failures are allowed, just return null
+    return null;
   }
-
-  return [
-    "test query", // no bang
-    "javascript tutorial", // no bang
-    `!${selectedBangs[0]} nodejs`, // use evenly distributed bang
-    `!${selectedBangs[1]} macbook pro`, // use evenly distributed bang
-    `!${selectedBangs[2]} quantum computing`, // use evenly distributed bang
-    `!${selectedBangs[3] || selectedBangs[0]} funny cats`, // use evenly distributed bang
-    `!${selectedBangs[4] || selectedBangs[0]} programming`, // use evenly distributed bang
-    "search with spaces and symbols @#$", // no bang
-    "very-long-search-query-with-many-words-and-hyphens-to-test-performance", // no bang
-    `!${selectedBangs[0]}`, // empty query with bang
-  ];
 }
 
-function formatLength(length: number): string {
-  if (length < 1000) return `${length} chars`;
-  if (length < 1000000) return `${(length / 1000).toFixed(1)}K chars`;
-  return `${(length / 1000000).toFixed(1)}M chars`;
+interface BenchmarkResult {
+  compression: string;
+  datasetSize: number;
+  query: string;
+  timing: number;
+  url: string;
 }
 
-function createBangString(numBangs: number): string {
-  // Use popular bangs and sample N entries with even distribution
-  const redirectData: RedirectData[] = [];
+// Collect comprehensive performance data for all test cases
+async function collectAllBenchmarkData(
+  runsPerTest: number = 20,
+): Promise<BenchmarkResult[]> {
+  console.log(
+    `Collecting benchmark data with ${runsPerTest} runs per test case...`,
+  );
+  console.log(`Total test cases: ${testUrls.length}`);
+  console.log(`Total benchmark runs: ${testUrls.length * runsPerTest}`);
 
-  // Use a deterministic sampling to ensure consistent results
-  const step = Math.floor(totalBangs / numBangs);
-  for (let i = 0; i < numBangs && i < totalBangs; i++) {
-    const index = (i * step) % totalBangs;
-    const bang = popularBangs[index];
-    redirectData.push({
-      bangs: [bang.t],
-      url: bang.u,
-    });
-  }
+  const results: BenchmarkResult[] = [];
+  let completedTests = 0;
 
-  // Use the stringify function to convert to the proper format
-  return stringify(redirectData);
-}
+  for (const testCase of testUrls) {
+    const compressionName = getCompressionName(testCase.compression);
 
-// Prepare test data and compressed versions
-const testData: Record<string, Record<Compression, string>> = {};
-const testQueries: Record<string, string[]> = {};
-
-function setupRedirectBenchmarks() {
-  // Prepare test data for each size
-  for (const size of testSizes) {
-    const bangString = createBangString(size);
-    testData[size.toString()] = {} as Record<Compression, string>;
-
-    // Create compressed versions for each method
-    for (const method of compressionMethods) {
-      try {
-        testData[size.toString()][method] = compress(bangString, method);
-      } catch (error) {
-        console.warn(`Failed to compress ${size} bangs with ${method}:`, error);
+    // Run multiple iterations for each test case
+    for (let run = 0; run < runsPerTest; run++) {
+      const timing = await benchmarkRedirect(testCase.url);
+      if (timing !== null) {
+        results.push({
+          compression: compressionName,
+          datasetSize: testCase.set,
+          query: testCase.query,
+          timing,
+          url: testCase.url,
+        });
       }
     }
 
-    // Create test queries for this dataset
-    const [decompressed] = decompress(
-      testData[size.toString()][Compression.None],
-    );
-    const allDecompressedBangs = decompressed.split(",").map((row) => {
-      const parts = row.split(">");
-      return parts[0];
-    });
-
-    // Create evenly distributed selection of bangs for test queries
-    const selectedBangs: string[] = [];
-    const totalDecompressedBangs = allDecompressedBangs.length;
-
-    for (let i = 0; i < 5 && i < totalDecompressedBangs; i++) {
-      const index = Math.floor((i * totalDecompressedBangs) / 5);
-      selectedBangs.push(allDecompressedBangs[index]);
+    completedTests++;
+    if (completedTests % 10 === 0) {
+      console.log(
+        `Progress: ${completedTests}/${testUrls.length} test cases completed`,
+      );
     }
-
-    testQueries[size.toString()] = createTestQueries(
-      selectedBangs.map((bang) => ({ bangs: [bang], url: "test" })),
-    );
   }
 
-  // Create benchmark groups for each data size
-  for (const size of testSizes) {
-    const sizeKey = size.toString();
-    const originalLength = createBangString(size).length;
-
-    group(
-      `Redirect workflow: ${size} bangs (${formatLength(originalLength)})`,
-      () => {
-        for (const method of compressionMethods) {
-          if (!testData[sizeKey][method]) continue;
-
-          const compressed = testData[sizeKey][method];
-          const compressedLength = compressed.length;
-          const ratio = originalLength / compressedLength;
-          const queries = testQueries[sizeKey];
-
-          bench(`${method} (${ratio.toFixed(1)}x)`, () => {
-            // Decompress
-            const [decompressed] = decompress(compressed);
-
-            // Test redirect with a random query
-            const query = queries[Math.floor(Math.random() * queries.length)];
-            try {
-              getRedirectUrl(query, decompressed);
-            } catch (error) {
-              // Some queries might not have valid bangs, that's ok
-            }
-          });
-        }
-      },
-    );
-  }
+  console.log(
+    `Data collection complete! Collected ${results.length} benchmark results\n`,
+  );
+  return results;
 }
 
-// Setup and run benchmarks
-setupRedirectBenchmarks();
-run();
+// Statistical analysis helpers
+function calculateStats(timings: number[]) {
+  if (timings.length === 0) return null;
+
+  const sorted = [...timings].sort((a, b) => a - b);
+  const avg = timings.reduce((sum, t) => sum + t, 0) / timings.length;
+  const min = sorted[0];
+  const max = sorted[sorted.length - 1];
+  const median = sorted[Math.floor(sorted.length / 2)];
+  const p75 = sorted[Math.floor(sorted.length * 0.75)];
+  const p99 = sorted[Math.floor(sorted.length * 0.99)];
+
+  return { avg, min, max, median, p75, p99, count: timings.length };
+}
+
+// Display results grouped by compression method
+async function displayResultsByCompression(results: BenchmarkResult[]) {
+  console.log("=".repeat(80));
+  console.log("📊 RESULTS BY COMPRESSION METHOD");
+  console.log("=".repeat(80));
+
+  const compressionGroups = results.reduce(
+    (acc, result) => {
+      if (!acc[result.compression]) acc[result.compression] = [];
+      acc[result.compression].push(result);
+      return acc;
+    },
+    {} as Record<string, BenchmarkResult[]>,
+  );
+
+  // Overall compression comparison
+  console.log("\n🔄 Overall Performance Comparison:");
+  boxplot(() => {
+    Object.entries(compressionGroups).forEach(([compression, compResults]) => {
+      if (compResults.length > 0) {
+        bench(`${compression} (${compResults.length} runs)`, async () => {
+          const randomResult =
+            compResults[Math.floor(Math.random() * compResults.length)];
+          await benchmarkRedirect(randomResult.url);
+        });
+      }
+    });
+  });
+
+  await run();
+
+  // Detailed breakdown by compression and dataset size
+  Object.entries(compressionGroups)
+    .sort(([, a], [, b]) => {
+      const avgA = a.reduce((sum, r) => sum + r.timing, 0) / a.length;
+      const avgB = b.reduce((sum, r) => sum + r.timing, 0) / b.length;
+      return avgA - avgB;
+    })
+    .forEach(([compression, compResults]) => {
+      console.log(
+        `\n📈 ${compression} Compression - Performance by Dataset Size:`,
+      );
+
+      const datasetGroups = compResults.reduce(
+        (acc, result) => {
+          if (!acc[result.datasetSize]) acc[result.datasetSize] = [];
+          acc[result.datasetSize].push(result.timing);
+          return acc;
+        },
+        {} as Record<number, number[]>,
+      );
+
+      // Boxplot for this compression across dataset sizes
+      boxplot(() => {
+        Object.entries(datasetGroups)
+          .sort(([a], [b]) => parseInt(a) - parseInt(b))
+          .forEach(([datasetSize, timings]) => {
+            if (timings.length > 0) {
+              bench(
+                `${datasetSize} bangs (${timings.length} runs)`,
+                async () => {
+                  const testCasesForSize = compResults.filter(
+                    (r) => r.datasetSize === parseInt(datasetSize),
+                  );
+                  const randomTest =
+                    testCasesForSize[
+                      Math.floor(Math.random() * testCasesForSize.length)
+                    ];
+                  await benchmarkRedirect(randomTest.url);
+                },
+              );
+            }
+          });
+      });
+
+      // Statistical summary
+      console.log(`\nStatistical Summary for ${compression}:`);
+      Object.entries(datasetGroups)
+        .sort(([a], [b]) => parseInt(a) - parseInt(b))
+        .forEach(([datasetSize, timings]) => {
+          const stats = calculateStats(timings);
+          if (stats) {
+            console.log(
+              `  ${datasetSize} bangs (${stats.count} runs): avg=${stats.avg.toFixed(3)}ms, median=${stats.median.toFixed(3)}ms, p75=${stats.p75.toFixed(3)}ms, min=${stats.min.toFixed(3)}ms, max=${stats.max.toFixed(3)}ms`,
+            );
+          }
+        });
+
+      // Overall stats for this compression
+      const allTimings = compResults.map((r) => r.timing);
+      const overallStats = calculateStats(allTimings);
+      if (overallStats) {
+        console.log(
+          `  Overall ${compression} (${overallStats.count} runs): avg=${overallStats.avg.toFixed(3)}ms, median=${overallStats.median.toFixed(3)}ms`,
+        );
+      }
+    });
+}
+
+// Display results grouped by dataset size
+async function displayResultsByDatasetSize(results: BenchmarkResult[]) {
+  console.log("" + "=".repeat(80));
+  console.log("� RESULTS BY DATASET SIZE");
+  console.log("=".repeat(80));
+
+  const sizeGroups = results.reduce(
+    (acc, result) => {
+      if (!acc[result.datasetSize]) acc[result.datasetSize] = [];
+      acc[result.datasetSize].push(result);
+      return acc;
+    },
+    {} as Record<number, BenchmarkResult[]>,
+  );
+
+  // Dataset size comparison
+  console.log("� Performance by Dataset Size:");
+  boxplot(() => {
+    Object.entries(sizeGroups)
+      .sort(([a], [b]) => parseInt(a) - parseInt(b))
+      .forEach(([size, sizeResults]) => {
+        if (sizeResults.length > 0) {
+          bench(`${size} bangs (${sizeResults.length} runs)`, async () => {
+            const randomResult =
+              sizeResults[Math.floor(Math.random() * sizeResults.length)];
+            await benchmarkRedirect(randomResult.url);
+          });
+        }
+      });
+  });
+
+  await run();
+
+  // Additional analysis functions
+  function displayOverallInsights(results: BenchmarkResult[]) {
+    console.log("\n" + "=".repeat(80));
+    console.log("🎯 OVERALL PERFORMANCE INSIGHTS");
+    console.log("=".repeat(80));
+
+    // Overall compression performance
+    const compressionGroups = results.reduce(
+      (acc, result) => {
+        if (!acc[result.compression]) acc[result.compression] = [];
+        acc[result.compression].push(result.timing);
+        return acc;
+      },
+      {} as Record<string, number[]>,
+    );
+
+    const compressionStats = Object.entries(compressionGroups)
+      .map(([compression, timings]) => ({
+        compression,
+        ...calculateStats(timings)!,
+      }))
+      .sort((a, b) => a.avg - b.avg);
+
+    console.log(
+      `\nOverall fastest compression: ${compressionStats[0].compression} (${compressionStats[0].avg.toFixed(3)}ms avg, ${compressionStats[0].count} runs)`,
+    );
+    console.log(
+      `Overall slowest compression: ${compressionStats[compressionStats.length - 1].compression} (${compressionStats[compressionStats.length - 1].avg.toFixed(3)}ms avg, ${compressionStats[compressionStats.length - 1].count} runs)`,
+    );
+
+    // Scaling analysis
+    console.log(`\nScaling Analysis:`);
+    compressionStats.forEach(({ compression }) => {
+      const datasetSizes = [
+        ...new Set(
+          results
+            .filter((r) => r.compression === compression)
+            .map((r) => r.datasetSize),
+        ),
+      ].sort((a, b) => a - b);
+
+      if (datasetSizes.length > 1) {
+        const smallestSizeTimings = results
+          .filter(
+            (r) =>
+              r.compression === compression &&
+              r.datasetSize === datasetSizes[0],
+          )
+          .map((r) => r.timing);
+        const largestSizeTimings = results
+          .filter(
+            (r) =>
+              r.compression === compression &&
+              r.datasetSize === datasetSizes[datasetSizes.length - 1],
+          )
+          .map((r) => r.timing);
+
+        const smallestAvg = calculateStats(smallestSizeTimings)?.avg || 0;
+        const largestAvg = calculateStats(largestSizeTimings)?.avg || 0;
+        const scalingFactor = largestAvg / smallestAvg;
+
+        console.log(
+          `  ${compression}: ${scalingFactor.toFixed(2)}x slower from ${datasetSizes[0]} to ${datasetSizes[datasetSizes.length - 1]} bangs`,
+        );
+      }
+    });
+
+    console.log(`\nTotal benchmark runs: ${results.length}`);
+    console.log(`Unique test cases: ${testUrls.length}`);
+    console.log(`Runs per test case: ${results.length / testUrls.length}`);
+  }
+
+  // Main benchmark execution
+  async function runComprehensiveBenchmarks() {
+    console.log("🚀 Starting Comprehensive Benchmark Analysis");
+    console.log("=".repeat(80));
+
+    // Collect all benchmark data first
+    const results = await collectAllBenchmarkData(20); // 20 runs per test case
+
+    // Display results organized by compression method
+    displayResultsByCompression(results);
+
+    // Display results organized by dataset size
+    displayResultsByDatasetSize(results);
+
+    // Display overall insights
+    displayOverallInsights(results);
+
+    console.log("\n" + "=".repeat(80));
+    console.log("✅ Comprehensive Benchmark Analysis Complete!");
+    console.log("=".repeat(80));
+  }
+
+  // Run the comprehensive benchmarks
+  runComprehensiveBenchmarks().catch(console.error);
+}

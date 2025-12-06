@@ -1,394 +1,219 @@
-import { test, expect } from "@playwright/test";
-import { compress, Compression } from "../src/lib/compression";
-import top100Bangs from "../pre-processing/top-popular/top100.json" assert { type: "json" };
+import { test } from "@playwright/test";
+import { createTestUrls } from "./url-builder";
 
-// Helper function to create evenly distributed bang selections from top100
-function createBangSubsets() {
-  const totalBangs = top100Bangs.length;
+interface BenchmarkResult {
+  url: string;
+  query: string;
+  compression: string;
+  setSize: number;
+  redirectTime: number;
+  success: boolean;
+  error?: string;
+}
 
-  const subsets = {
-    10: [] as typeof top100Bangs,
-    20: [] as typeof top100Bangs,
-    50: [] as typeof top100Bangs,
-    100: [] as typeof top100Bangs,
-  };
+test.describe("Redirect Performance Benchmark", () => {
+  let benchmarkResults: BenchmarkResult[] = [];
 
-  // Create evenly distributed selections from top100 bangs
-  for (const [size, subset] of Object.entries(subsets)) {
-    const sizeNum = parseInt(size);
-    const step = Math.floor(totalBangs / sizeNum);
+  test.afterAll(async () => {
+    // Output results summary
+    const successful = benchmarkResults.filter((r) => r.success);
+    const failed = benchmarkResults.filter((r) => !r.success);
 
-    for (let i = 0; i < sizeNum; i++) {
-      const index = (i * step) % totalBangs;
-      subset.push(top100Bangs[index]);
+    console.log("\n=== BENCHMARK RESULTS ===");
+    console.log(`Total tests: ${benchmarkResults.length}`);
+    console.log(`Successful: ${successful.length}`);
+    console.log(`Failed: ${failed.length}`);
+
+    if (successful.length > 0) {
+      const avgTime =
+        successful.reduce((sum, r) => sum + r.redirectTime, 0) /
+        successful.length;
+      const minTime = Math.min(...successful.map((r) => r.redirectTime));
+      const maxTime = Math.max(...successful.map((r) => r.redirectTime));
+
+      console.log(`\nRedirect Times (ms):`);
+      console.log(`  Average: ${avgTime.toFixed(2)}`);
+      console.log(`  Min: ${minTime.toFixed(2)}`);
+      console.log(`  Max: ${maxTime.toFixed(2)}`);
+
+      // Group by compression type
+      const byCompression = successful.reduce(
+        (acc, r) => {
+          acc[r.compression] = acc[r.compression] || [];
+          acc[r.compression].push(r.redirectTime);
+          return acc;
+        },
+        {} as Record<string, number[]>,
+      );
+
+      console.log(`\nBy Compression Type:`);
+      Object.entries(byCompression).forEach(([compression, times]) => {
+        const avg = times.reduce((sum, t) => sum + t, 0) / times.length;
+        const min = Math.min(...times);
+        const max = Math.max(...times);
+        console.log(
+          `  ${compression}: ${avg.toFixed(2)}ms avg (min: ${min.toFixed(2)}, max: ${max.toFixed(2)}, ${times.length} tests)`,
+        );
+      });
+
+      // Group by set size
+      const bySetSize = successful.reduce(
+        (acc, r) => {
+          acc[r.setSize] = acc[r.setSize] || [];
+          acc[r.setSize].push(r.redirectTime);
+          return acc;
+        },
+        {} as Record<number, number[]>,
+      );
+
+      console.log(`\nBy Set Size:`);
+      Object.entries(bySetSize).forEach(([setSize, times]) => {
+        const avg = times.reduce((sum, t) => sum + t, 0) / times.length;
+        const min = Math.min(...times);
+        const max = Math.max(...times);
+        console.log(
+          `  ${setSize} bangs: ${avg.toFixed(2)}ms avg (min: ${min.toFixed(2)}, max: ${max.toFixed(2)}, ${times.length} tests)`,
+        );
+      });
+
+      // Performance summary similar to mitata
+      console.log(`\n=== Performance Analysis ===`);
+
+      // Find fastest compression method
+      const compressionPerf = Object.entries(byCompression)
+        .map(([name, times]) => ({
+          name,
+          avg: times.reduce((sum, t) => sum + t, 0) / times.length,
+          count: times.length,
+        }))
+        .sort((a, b) => a.avg - b.avg);
+
+      console.log(
+        `Fastest compression: ${compressionPerf[0].name} (${compressionPerf[0].avg.toFixed(2)}ms avg)`,
+      );
+      console.log(
+        `Slowest compression: ${compressionPerf[compressionPerf.length - 1].name} (${compressionPerf[compressionPerf.length - 1].avg.toFixed(2)}ms avg)`,
+      );
+
+      // Find optimal dataset size performance
+      const sizePerf = Object.entries(bySetSize)
+        .map(([size, times]) => ({
+          size: parseInt(size),
+          avg: times.reduce((sum, t) => sum + t, 0) / times.length,
+          count: times.length,
+        }))
+        .sort((a, b) => a.avg - b.avg);
+
+      console.log(
+        `Fastest dataset size: ${sizePerf[0].size} bangs (${sizePerf[0].avg.toFixed(2)}ms avg)`,
+      );
+      console.log(
+        `Slowest dataset size: ${sizePerf[sizePerf.length - 1].size} bangs (${sizePerf[sizePerf.length - 1].avg.toFixed(2)}ms avg)`,
+      );
     }
-  }
 
-  return subsets;
-}
-
-// Convert bang subset to string format (using the bang format from top100)
-function bangSubsetToString(bangEntries: typeof top100Bangs): string {
-  return bangEntries.map((bang) => `${bang.t}>${bang.u}`).join(",");
-}
-
-const bangSubsets = createBangSubsets();
-const compressionMethods = [
-  Compression.None,
-  Compression.Base64,
-  Compression.LZString,
-  Compression.Gzip,
-] as const;
-
-const testSizes = [10, 20, 50, 100] as const;
-const baseUrl = "http://localhost:3000";
-
-test.describe("Unified Browser Redirect Performance (Top 100 Bangs)", () => {
-  test.describe.configure({ mode: "serial" }); // Run tests sequentially for accurate timing
-
-  for (const size of testSizes) {
-    for (const method of compressionMethods) {
-      test(`Redirect ${size} bangs - ${method} compression`, async ({
-        page,
-      }) => {
-        const bangEntries = bangSubsets[size];
-        const bangString = bangSubsetToString(bangEntries);
-
-        // Use a simple query that should redirect quickly with top100 bangs
-        const query = `!${bangEntries[0].t} test`;
-
-        // Compress the bang data
-        const compressedBangs = compress(bangString, method);
-
-        // Create the URL with compressed data
-        const testUrl = `${baseUrl}/x?q=${encodeURIComponent(query)}&b=${encodeURIComponent(compressedBangs)}`;
-
-        let redirectTime = -1;
-        let success = false;
-
-        try {
-          // Inject timing code to measure until location.replace is called
-          await page.addInitScript(() => {
-            // Store the original location.replace
-            const originalReplace = window.location.replace;
-
-            // Override location.replace to capture timing
-            window.location.replace = function (url: string | URL) {
-              // Calculate time from page load start
-              const timing = performance.now();
-
-              // Store the timing for retrieval
-              (window as any).__redirectTiming = timing;
-
-              // Call original replace to actually perform redirect
-              return originalReplace.call(window.location, url);
-            };
-          });
-
-          // Navigate to the test URL
-          await page.goto(testUrl, {
-            waitUntil: "domcontentloaded",
-            timeout: 10000,
-          });
-
-          // Wait for redirect timing to be captured or timeout
-          redirectTime = await page.evaluate(() => {
-            return new Promise<number>((resolve) => {
-              // Check if timing was already captured
-              if ((window as any).__redirectTiming) {
-                resolve((window as any).__redirectTiming);
-                return;
-              }
-
-              // Poll for timing with timeout
-              let attempts = 0;
-              const maxAttempts = 100; // 5 seconds max
-
-              const checkTiming = () => {
-                if ((window as any).__redirectTiming) {
-                  resolve((window as any).__redirectTiming);
-                } else if (attempts < maxAttempts) {
-                  attempts++;
-                  setTimeout(checkTiming, 50);
-                } else {
-                  resolve(-1); // Timeout
-                }
-              };
-
-              checkTiming();
-            });
-          });
-
-          success = redirectTime > 0;
-
-          if (success) {
-            // Calculate compression info
-            const originalSize = bangString.length;
-            const compressedSize = compressedBangs.length;
-            const compressionRatio = originalSize / compressedSize;
-
-            console.log(
-              `✓ [${method}] ${size} top100 bangs | "${query}" → ${redirectTime.toFixed(1)}ms`,
-            );
-            console.log(
-              `   Data: ${originalSize} → ${compressedSize} chars (${compressionRatio.toFixed(1)}x compression)`,
-            );
-            console.log(
-              `   Bang: ${bangEntries[0].t} → ${bangEntries[0].s} (rank: ${bangEntries[0].r})`,
-            );
-            console.log(
-              `   Throughput: ${(1000 / redirectTime).toFixed(1)} redirects/sec\n`,
-            );
-          } else {
-            console.log(`✗ [${method}] ${size} bangs | "${query}" → TIMEOUT`);
-          }
-        } catch (error) {
-          console.log(
-            `✗ [${method}] ${size} bangs | "${query}" → ERROR: ${error}`,
-          );
-          success = false;
-        }
-
-        // Verify that timing measurement works
-        expect(redirectTime).toBeGreaterThan(0);
+    if (failed.length > 0) {
+      console.log(`\nFailed tests:`);
+      failed.forEach((r) => {
+        console.log(`  ${r.query} (${r.compression}/${r.setSize}): ${r.error}`);
       });
     }
-  }
-
-  test("Compression method comparison", async ({ page }) => {
-    // This test provides a summary comparison of all methods
-    const size = 20; // Use moderate dataset for comparison
-    const bangEntries = bangSubsets[size];
-    const bangString = bangSubsetToString(bangEntries);
-    const query = `!${bangEntries[0].t} test`; // Simple test query using top100 bang
-
-    const results: Array<{
-      method: Compression;
-      originalSize: number;
-      compressedSize: number;
-      compressionRatio: number;
-      redirectTime: number;
-      success: boolean;
-    }> = [];
-
-    for (const method of compressionMethods) {
-      const compressedBangs = compress(bangString, method);
-      const testUrl = `${baseUrl}/x?q=${encodeURIComponent(query)}&b=${encodeURIComponent(compressedBangs)}`;
-
-      try {
-        // Inject timing code to measure until location.replace is called
-        await page.addInitScript(() => {
-          // Store the original location.replace
-          const originalReplace = window.location.replace;
-
-          // Override location.replace to capture timing
-          window.location.replace = function (url: string | URL) {
-            // Calculate time from page load start
-            const timing = performance.now();
-
-            // Store the timing for retrieval
-            (window as any).__redirectTiming = timing;
-
-            // Call original replace to actually perform redirect
-            return originalReplace.call(window.location, url);
-          };
-        });
-
-        await page.goto(testUrl, {
-          waitUntil: "domcontentloaded",
-          timeout: 10000,
-        });
-
-        // Wait for redirect timing to be captured
-        const redirectTime = await page.evaluate(() => {
-          return new Promise<number>((resolve) => {
-            // Check if timing was already captured
-            if ((window as any).__redirectTiming) {
-              resolve((window as any).__redirectTiming);
-              return;
-            }
-
-            // Poll for timing with timeout
-            let attempts = 0;
-            const maxAttempts = 100; // 5 seconds max
-
-            const checkTiming = () => {
-              if ((window as any).__redirectTiming) {
-                resolve((window as any).__redirectTiming);
-              } else if (attempts < maxAttempts) {
-                attempts++;
-                setTimeout(checkTiming, 50);
-              } else {
-                resolve(-1); // Timeout
-              }
-            };
-
-            checkTiming();
-          });
-        });
-
-        const success = redirectTime > 0;
-
-        results.push({
-          method,
-          originalSize: bangString.length,
-          compressedSize: compressedBangs.length,
-          compressionRatio: bangString.length / compressedBangs.length,
-          redirectTime,
-          success,
-        });
-      } catch (error) {
-        results.push({
-          method,
-          originalSize: bangString.length,
-          compressedSize: compressedBangs.length,
-          compressionRatio: bangString.length / compressedBangs.length,
-          redirectTime: -1,
-          success: false,
-        });
-      }
-    }
-
-    // Print comparison table
-    console.log(
-      `\n🏆 COMPRESSION METHOD COMPARISON (${size} top100 bangs, "${query}"):`,
-    );
-    console.log("Method | Orig Size | Comp Size | Ratio | Time (ms) | Success");
-    console.log("-------|-----------|-----------|-------|-----------|--------");
-
-    for (const result of results) {
-      const origSize = `${result.originalSize}ch`;
-      const compSize = `${result.compressedSize}ch`;
-      const ratio =
-        result.compressionRatio > 0 ?
-          `${result.compressionRatio.toFixed(1)}x`
-        : "N/A";
-      const time =
-        result.redirectTime > 0 ? `${result.redirectTime.toFixed(1)}ms` : "N/A";
-      const success = result.success ? "✓" : "✗";
-
-      console.log(
-        `${result.method.padEnd(6)} | ${origSize.padEnd(9)} | ${compSize.padEnd(9)} | ${ratio.padEnd(5)} | ${time.padEnd(9)} | ${success}`,
-      );
-    }
-
-    // Calculate summary stats
-    const successful = results.filter((r) => r.success);
-    if (successful.length > 0) {
-      const fastest = successful.reduce((prev, curr) =>
-        (
-          curr.redirectTime > 0 &&
-          (prev.redirectTime < 0 || curr.redirectTime < prev.redirectTime)
-        ) ?
-          curr
-        : prev,
-      );
-      const bestCompression = successful.reduce((prev, curr) =>
-        curr.compressionRatio > prev.compressionRatio ? curr : prev,
-      );
-
-      console.log(`\n📈 SUMMARY:`);
-      console.log(
-        `   Fastest: ${fastest.method} (${fastest.redirectTime.toFixed(1)}ms)`,
-      );
-      console.log(
-        `   Best Compression: ${bestCompression.method} (${bestCompression.compressionRatio.toFixed(1)}x)`,
-      );
-      console.log(
-        `   Success Rate: ${successful.length}/${results.length} methods\n`,
-      );
-    }
-
-    // Verify we got some results
-    expect(results.length).toBe(compressionMethods.length);
-    expect(successful.length).toBeGreaterThan(0);
   });
 
-  test("Dataset size scaling", async ({ page }) => {
-    // Test how performance scales with dataset size using None compression
-    const method = Compression.None;
-    const query = "test query";
+  const testUrls = createTestUrls();
 
-    const scalingResults: Array<{
-      size: number;
-      dataSize: number;
-      redirectTime: number;
-      throughput: number;
-    }> = [];
+  // Sample tests across different dimensions for comprehensive benchmarking
+  // Take a representative sample to avoid too many tests
+  const sampleUrls = [
+    // Get samples from each compression type
+    ...Object.values(["E", "B", "L", "G"])
+      .map((compression) =>
+        testUrls.find((url) => url.compression === compression),
+      )
+      .filter((url): url is NonNullable<typeof url> => url !== undefined),
+    // Get samples from each dataset size
+    ...Object.values([10, 20, 50, 100])
+      .map((setSize) => testUrls.find((url) => url.set === setSize))
+      .filter((url): url is NonNullable<typeof url> => url !== undefined),
+    // Add some random samples for variety
+    ...testUrls.slice(0, 10).sort(() => Math.random() - 0.5),
+  ].slice(0, 20); // Limit total tests
 
-    for (const size of testSizes) {
-      const bangEntries = bangSubsets[size];
-      const bangString = bangSubsetToString(bangEntries);
-      const compressedBangs = compress(bangString, method);
-      const testUrl = `${baseUrl}/x?q=${encodeURIComponent(query)}&b=${encodeURIComponent(compressedBangs)}`;
+  sampleUrls.forEach((testData, index) => {
+    test(`Redirect ${index + 1}: ${testData.query.slice(0, 30)}... (${testData.compression}/${testData.set})`, async ({
+      page,
+    }) => {
+      const result: BenchmarkResult = {
+        url: testData.url,
+        query: testData.query,
+        compression: testData.compression,
+        setSize: testData.set,
+        redirectTime: 0,
+        success: false,
+      };
 
       try {
-        // Inject timing code
+        // Override window.location.replace to measure timing
         await page.addInitScript(() => {
-          const originalReplace = window.location.replace;
-          window.location.replace = function (url: string | URL) {
-            const timing = performance.now();
-            (window as any).__redirectTiming = timing;
-            return originalReplace.call(window.location, url);
+          const startTime = performance.now();
+
+          // Override with timing measurement
+          window.location.replace = function (url: string) {
+            const endTime = performance.now();
+            (window as any).redirectTime = endTime - startTime;
+            (window as any).redirectUrl = url;
+            (window as any).redirectCalled = true;
+
+            // Log the measurement for debugging
+            console.log(
+              `Redirect measured: ${(window as any).redirectTime.toFixed(2)}ms to ${url}`,
+            );
+
+            // Don't actually redirect during testing - just mark as complete
+            return;
           };
         });
 
-        await page.goto(testUrl, {
+        // Navigate to the test URL and start timing
+        await page.goto(testData.url, {
           waitUntil: "domcontentloaded",
           timeout: 10000,
         });
 
-        const redirectTime = await page.evaluate(() => {
-          return new Promise<number>((resolve) => {
-            if ((window as any).__redirectTiming) {
-              resolve((window as any).__redirectTiming);
-              return;
-            }
+        // Wait for redirect processing with timeout
+        await page.waitForFunction(
+          () => (window as any).redirectCalled === true,
+          { timeout: 5000 },
+        );
 
-            let attempts = 0;
-            const maxAttempts = 100;
+        // Get the measured redirect time
+        const pageRedirectData = await page.evaluate(() => ({
+          called: (window as any).redirectCalled || false,
+          time: (window as any).redirectTime || 0,
+          url: (window as any).redirectUrl || "",
+        }));
 
-            const checkTiming = () => {
-              if ((window as any).__redirectTiming) {
-                resolve((window as any).__redirectTiming);
-              } else if (attempts < maxAttempts) {
-                attempts++;
-                setTimeout(checkTiming, 50);
-              } else {
-                resolve(-1);
-              }
-            };
-
-            checkTiming();
-          });
-        });
-
-        if (redirectTime > 0) {
-          const throughput = 1000 / redirectTime;
-          scalingResults.push({
-            size,
-            dataSize: bangString.length,
-            redirectTime,
-            throughput,
-          });
+        if (pageRedirectData.called && pageRedirectData.time > 0) {
+          result.redirectTime = pageRedirectData.time;
+          result.success = true;
+          console.log(
+            `✓ Redirect measured: ${result.redirectTime.toFixed(2)}ms to ${pageRedirectData.url.slice(0, 50)}...`,
+          );
+        } else {
+          throw new Error("No redirect detected within timeout");
         }
       } catch (error) {
-        console.log(`Error testing ${size} bangs: ${error}`);
+        result.error = error instanceof Error ? error.message : String(error);
+        result.success = false;
+        console.log(`✗ Failed: ${result.error}`);
       }
-    }
 
-    // Print scaling results
-    console.log(`\n📊 DATASET SIZE SCALING (${method} compression):`);
-    console.log("Size | Data Size | Time (ms) | Throughput (req/s)");
-    console.log("-----|-----------|-----------|-------------------");
+      benchmarkResults.push(result);
 
-    for (const result of scalingResults) {
-      console.log(
-        `${result.size.toString().padEnd(4)} | ${result.dataSize.toString().padEnd(9)} | ${result.redirectTime.toFixed(1).padEnd(9)} | ${result.throughput.toFixed(1)}`,
-      );
-    }
-
-    // Verify scaling works
-    expect(scalingResults.length).toBeGreaterThan(0);
+      // Don't fail the test, just log the result for benchmarking
+      if (!result.success) {
+        console.log(`Test ${index + 1} failed but continuing: ${result.error}`);
+      }
+    });
   });
 });

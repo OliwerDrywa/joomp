@@ -12,7 +12,7 @@
     "test.e2e": "bunx playwright test tests/*.spec.ts",
     "test.e2e:watch": "bunx playwright test tests/*.spec.ts --ui",
     "test.e2e:headed": "bunx playwright test tests/*.spec.ts --headed",
-    "benchmark.unit": "bunx playwright test benchmark/*.test.ts",
+    "benchmark.unit": "bun run benchmark/*.test.ts",
     "benchmark.e2e": "bunx playwright test benchmark/*.spec.ts"
   },
   "dependencies": {
@@ -27,7 +27,7 @@
     "solid-js": "^1.9.4"
   },
   "devDependencies": {
-    "@playwright/test": "^1.54.1",
+    "@playwright/test": "^1.54.2",
     "@types/bun": "^1.2.18",
     "mitata": "^1.0.34",
     "playwright": "^1.54.1",

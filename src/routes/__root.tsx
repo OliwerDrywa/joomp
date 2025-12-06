@@ -8,14 +8,14 @@ import { type } from "arktype";
 // @ts-ignore -- pixelsAnimation directive is used but gets marked as unused variable
 import { getStyles, pixelsAnimation } from "@/lib/pixelAnimations";
 
-const DEFAULT_REDIRECT_MAP =
-  "2CbDmD5gVwYwa2vUB7AdDZBbA9AfgI4C8A3qQM4C-VANBCsqADYCm49Tz6W2ZzAhgCcYACwIlyVCtQAuAZnBz0wvtOwA7ZgHcxpYpRqhhbAJbThUAEZccvQSJ0SaAT2ngnyKNMucMOAczIoRmkyXFshYQB9fChmASdxPUlqTWM4Y3BU9IAHZmBjPlRkAVBsLONsAGVcmALGAC5K_giw5pFE_SlNSFgEXpRrPCJNfjM4gGpdTuoBcH8QU0GBbCnJIA";
+const DEFAULT_BANGS =
+  "LCbDmD5gVwYwa2vUB7AdDZBbA9AfgI4C8A3qQM4C-VANBCsqADYCm49Tz6W2ZzAhgCcYACwIlyVCtQAuAZnBz0wvtOwA7ZgHcxpYpRqhhbAJbThUAEZccvQSJ0SaAT2ngnyKNMucMOAczIoRmkyXFshYQB9fChmASdxPUlqTWM4Y3BU9IAHZmBjPlRkAVBsLONsAGVcmALGAC5K_giw5pFE_SlNSFgEXpRrPCJNfjM4gGpdTuoBcH8QU0GBbCnJIA";
 
 export const Route = createRootRouteWithContext()({
   component: RootComponent,
   validateSearch: type({
     "q?": "string",
-    b: `string = '${DEFAULT_REDIRECT_MAP}'`,
+    b: `string = '${DEFAULT_BANGS}'`,
   }),
 });
 

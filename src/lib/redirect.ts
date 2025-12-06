@@ -96,12 +96,11 @@ export function* split(
   yield str.slice(i); // the remainder
 }
 
-async function decompress(str: string) {
-  const method = str.charAt(0); //  = ">" | "B" | "L" | "G";
+export async function decompress(str: string) {
+  const method = str.charAt(0); //  = "E" | "B" | "L" | "G";
   const data = str.slice(1);
 
-  if (method === ">") {
-    console.log("No compression, returning data as is");
+  if (method === "E") {
     return data;
   }
 
@@ -110,19 +109,18 @@ async function decompress(str: string) {
 
   switch (method) {
     case "B": {
-      console.log("unencoding base64");
-      return atob(base64);
+      const binaryString = atob(base64);
+      const bytes = Uint8Array.from(binaryString, (c) => c.charCodeAt(0));
+      return new TextDecoder().decode(bytes);
     }
 
     case "L": {
       const { decompressFromBase64 } = await import("lz-string");
-      console.log("decompressing using lz-string");
       return decompressFromBase64(base64);
     }
 
     case "G": {
       const { inflate } = await import("pako");
-      console.log("decompressing using pako");
       return new TextDecoder().decode(
         inflate(Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))),
       );

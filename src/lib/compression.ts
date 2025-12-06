@@ -2,7 +2,7 @@ import { deflate, inflate } from "pako";
 import LZString from "lz-string";
 
 export enum Compression {
-  None = ">",
+  None = "E",
   Base64 = "B",
   LZString = "L",
   Gzip = "G",

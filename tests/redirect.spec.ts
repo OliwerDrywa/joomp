@@ -5,10 +5,10 @@ import popularBangs from "../pre-processing/top-popular/top200.json" assert { ty
 const baseUrl = "http://localhost:3000";
 
 test.describe("/x route tests", () => {
-  test.beforeEach(async () => {
-    // Start the dev server if needed
-    // This assumes the dev server is already running on localhost:3000
-  });
+  // test.beforeEach(async () => {
+  //   // Start the dev server if needed
+  //   // This assumes the dev server is already running on localhost:3000
+  // });
 
   test.describe("Basic redirect functionality", () => {
     test("should redirect to GitHub when using !gh bang", async ({ page }) => {
@@ -53,7 +53,16 @@ test.describe("/x route tests", () => {
 
       const testUrl = `${baseUrl}/x.html?q=${encodeURIComponent(query)}&b=${encodeURIComponent(compressedBangs)}`;
 
+      console.log(`Test URL: ${testUrl}`);
+      console.log(`Test URL: ${testUrl}`);
+      console.log(`Test URL: ${testUrl}`);
+      console.log(`Test URL: ${testUrl}`);
+      console.log(`Test URL: ${testUrl}`);
+      console.log(`Test URL: ${testUrl}`);
+
       await page.goto(testUrl);
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Should redirect to GitHub origin when query is empty
       await expect(page).toHaveURL("https://github.com/");
