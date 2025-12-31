@@ -2,11 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
-      "source": "/go",
-      "destination": "/go.html"
+      "source": "/x",
+      "destination": "/x.html"
     },
     {
-      "source": "/((?!api/|_next/|favicon.ico|go\\.html|.*\\..*).*)",
+      "source": "/((?!api/|_next/|favicon.ico|x\\.html|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]

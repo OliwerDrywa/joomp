@@ -1,22 +1,19 @@
+import { decompress } from "@/lib/compression";
 import { getRedirectUrl } from "@/lib/redirect";
 import { createFileRoute } from "@tanstack/solid-router";
-import { type } from "arktype";
 import { createSignal, For } from "solid-js";
 
 export const Route = createFileRoute("/test")({
   component: RouteComponent,
-  validateSearch: type({
-    via: "string = 'eJwDAAAAAAE'",
-    "notFound?": "string",
-  }),
 });
 
 function RouteComponent() {
   const params = Route.useSearch();
-  return <RedirectTester via={params().via} />;
+  const [bangs] = decompress(params().b);
+  return <RedirectTester bangs={bangs} />;
 }
 
-function RedirectTester(props: { via: string }) {
+function RedirectTester(props: { bangs: string }) {
   const [testQuery, setTestQuery] = createSignal(
     "!g <search-term>\n!yt\n!wiki url\n!foo",
   );
@@ -35,7 +32,14 @@ function RedirectTester(props: { via: string }) {
             .split("\n")
             .map((line) => line.trim())
             .filter(Boolean)
-            .map((to) => getRedirectUrl({ to, via: props.via }))}
+            .map((q) => {
+              try {
+                return getRedirectUrl(q, props.bangs);
+              } catch (e) {
+                if (e instanceof Error) return e.message;
+                throw e;
+              }
+            })}
         >
           {(url) => <span class="flex gap-2 text-nowrap">{url}</span>}
         </For>
