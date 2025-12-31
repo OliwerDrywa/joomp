@@ -17,14 +17,8 @@
     </style>
   </head>
 
-  <body>
-    <script type="module">
-      // @ts-check
-      import { getSearchParams, getRedirectUrl } from "/src/lib/redirect.ts";
-      const params = getSearchParams();
-      const url = getRedirectUrl(params);
-      document.title = `➜ ${new URL(url).hostname}`;
-      window.location.replace(url);
-    </script>
-  </body>
+  <script type="module">
+    import redirect from "/src/lib/redirect.ts";
+    redirect();
+  </script>
 </html>

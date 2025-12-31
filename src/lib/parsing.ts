@@ -1,26 +1,16 @@
-const URL_MARK = "/";
+export type RedirectData = { bangs: string[]; url: string };
 
-export type RedirectData = { triggers: string[]; url: string };
-
-export function stringify(redirectMap: RedirectData[]): string {
-  return redirectMap
-    .filter(({ triggers, url }) => triggers.length > 0 && url)
-    .map(({ triggers, url }) => triggers.join(",") + "," + URL_MARK + url)
+export const stringify = (redirectMap: RedirectData[]) =>
+  redirectMap
+    .filter(({ bangs, url }) => bangs.length > 0 && url)
+    .map(({ bangs, url }) => bangs.concat(url).join(">"))
     .join(",");
-}
 
-export function parse(str: string): RedirectData[] {
-  const redirectMap = [] as RedirectData[];
-  let triggers = [] as RedirectData["triggers"];
-
-  for (const part of str.split(",")) {
-    if (part.startsWith(URL_MARK)) {
-      redirectMap.push({ triggers, url: part.slice(URL_MARK.length) });
-      triggers = [];
-    } else {
-      triggers.push(part);
-    }
-  }
-
-  return redirectMap;
-}
+export const parse = (str: string): RedirectData[] =>
+  str
+    .split(",")
+    .map((row) => {
+      const bangs = row.split(">");
+      return { bangs, url: bangs.pop()! };
+    })
+    .filter(({ bangs, url }) => bangs.length > 0 && url);

@@ -1,58 +1,106 @@
-import { decompress } from "@/lib/compression";
+import { decompressFromBase64 } from "lz-string";
 
-export function getSearchParams() {
-  const params = new URL(location.href).searchParams;
-  return { to: params.get("to"), via: params.get("via") };
+export default async function redirect() {
+  const params = new URLSearchParams(location.search);
+  try {
+    const q = params.get("q");
+    if (!q) throw new Error("missing 'q' parameter");
+
+    const b = params.get("b");
+    if (!b) throw new Error("missing 'b' parameter");
+
+    const url = getRedirectUrl(q, await decompress(b));
+    document.title = `➜ ${new URL(url).hostname}`;
+
+    location.replace(url);
+  } catch {
+    location.replace("/edit" + location.search);
+  }
 }
 
-export function getRedirectUrl(search: ReturnType<typeof getSearchParams>) {
-  if (!search.to || !search.via) return "/";
-
+/**
+ * Get the redirect URL based on the query and links.
+ * Can throw string, which is a relative URL to redirect to.
+ *
+ * @param query The search query, which may include a bang (e.g., `!gh`).
+ * @param bangs The original URL or list of URLs to redirect through.
+ * @returns The final redirect URL.
+ */
+export function getRedirectUrl(query: string, bangs: string) {
   // cut bang (e.g.: `!gh`) out from query
-  const bang = search.to.match(/!(\S+)/i)?.[1]?.toLowerCase();
-  const query = search.to.replace(/!\S+\s*/i, "").trim(); // could be ""
+  const bang = query.match(/!(\S+)/i)?.[1]?.toLowerCase();
+  query = query.replace(/!\S+\s*/i, "").trim(); // could be ""
 
-  const via = decompress(search.via);
+  let url: string | undefined;
 
-  const url = (() => {
-    // find bang in `via`
-    // if no bang or first bang, use the first url in the list
-    const i = (() => {
-      if (!bang) return 0;
-      if (via.startsWith(bang + ",")) return 0;
-      return via.indexOf("," + bang + ",");
-    })();
-
-    if (i === -1) {
-      // if the bang does not exist in the provided map
-      // redirect to edit page with notFound parameter
-      return "/edit?notFound=" + bang + "&via=" + search.via;
+  // if no bang, use the first URL in the list
+  // if bang is present, find the URL that matches the bang
+  for (const row of split(bangs, ",")) {
+    if (!bang) {
+      // if no bang, use the first URL in the list
+      url = row.slice(row.lastIndexOf(">") + 1);
+      break;
     }
 
-    // after `position`, find next url between "//" and the following ","
-    const urlStart = via.indexOf(",/", i);
-    if (urlStart === -1) throw "malformed `?via=` parameter: " + via; // TODO see if we can revocver this
+    const i = row.indexOf(bang + ">");
+    if (i === -1) continue;
 
-    const urlEnd = (() => {
-      const i = via.indexOf(",", urlStart + 2);
-      if (i === -1) return undefined; // we are at the end of the list, take the whole remainder of the string by not setting an end parameter
-      return i;
-    })();
+    if (i === 0 || row.at(i - 1) === ">") {
+      const urlStart = row.lastIndexOf(">") + 1;
+      url = row.slice(urlStart);
+      break;
+    }
+  }
 
-    return "https://" + via.slice(urlStart + 2, urlEnd);
-  })();
+  if (!url) throw new Error(`no URL found for bang: ${bang}`);
 
-  // if the url doesn't contain `{{{s}}}`, just return it as is
-  if (!url.includes("{{{s}}}")) return url;
+  // prefix with https:// if not already present
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    url = "https://" + url;
+  }
 
-  // Format of url should be: google.com/search?q={{{s}}}
+  // inject the search query into the URL
+  if (query && url.includes("{{{s}}}")) {
+    // replace %2F with / to fix queries like `!ghr+t3dotgg/unduck`
+    query = encodeURIComponent(query).replace(/%2F/g, "/");
+    url = url.replaceAll("{{{s}}}", query);
+  }
 
-  // If the  query is just `!gh`, use `https://github.com` instead of `https://github.com/search?q=`
-  if (query === "") return new URL(url).origin;
+  // if the query is empty (after cutting out the bang `!gh`) -
+  // use `https://github.com` instead of `https://github.com/search?q=
+  if (!query && url.includes("{{{s}}}")) {
+    url = new URL(url).origin;
+  }
 
-  return url.replaceAll(
-    "{{{s}}}",
-    // Replace %2F with / to fix formats like "!ghr+t3dotgg/unduck"
-    encodeURIComponent(query).replace(/%2F/g, "/"),
-  );
+  return url;
+}
+
+/**
+ * String.split() but as a lazy generator.
+ * @param str The string to split.
+ * @param delimiter The delimiter to split the string by.
+ * @returns A generator that yields each split segment.
+ */
+export function* split(
+  str: string,
+  delimiter: string,
+): Generator<string, void, unknown> {
+  let i = 0;
+  let j = str.indexOf(delimiter);
+
+  while (j !== -1) {
+    yield str.slice(i, j);
+    i = j + delimiter.length;
+    j = str.indexOf(delimiter, i);
+  }
+
+  yield str.slice(i); // the remainder
+}
+
+async function decompress(str: string) {
+  // Convert URL-safe base64 back to standard base64
+  let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  while (base64.length % 4) base64 += "="; // Add padding if needed
+
+  return decompressFromBase64(base64);
 }
