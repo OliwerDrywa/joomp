@@ -1,22 +1,20 @@
-import { deflate, inflate } from "pako";
+import { compressToBase64, decompressFromBase64 } from "lz-string";
 
 export function compress(str: string) {
-  return btoa(String.fromCharCode(...deflate(new TextEncoder().encode(str))))
+  return compressToBase64(str)
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=/g, "");
 }
 
 export function decompress(str: string) {
-  // Convert URL-safe base64 back to standard base64
-  let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
-
-  // Add padding if needed
-  while (base64.length % 4) {
-    base64 += "=";
+  if (str.length === 0) {
+    throw new Error("Empty string cannot be decompressed");
   }
 
-  return new TextDecoder().decode(
-    inflate(Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))),
-  );
+  // Convert URL-safe base64 back to standard base64
+  let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  while (base64.length % 4) base64 += "="; // Add padding if needed
+
+  return decompressFromBase64(base64);
 }
