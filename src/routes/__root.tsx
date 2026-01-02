@@ -9,7 +9,7 @@ import { type } from "arktype";
 import { getStyles, pixelsAnimation } from "@/lib/pixelAnimations";
 
 const DEFAULT_REDIRECT_MAP =
-  "CbDmD5gVwYwa2vUB7AdDZBbA9AfgI4C8A3qQM4C-VANBCsqADYCm49Tz6W2ZzAhgCcYACwIlyVCtQAuAZnBz0wvtOwA7ZgHcxpYpRqhhbAJbThUAEZccvQSJ0SaAT2ngnyKNMucMOAczIoRmkyXFshYQB9fChmASdxPUlqTWM4Y3BU9IAHZmBjPlRkAVBsLONsAGVcmALGAC5K_giw5pFE_SlNSFgEXpRrPCJNfjM4gGpdTuoBcH8QU0GBbCnJIA";
+  "CbDmD4AsBdoBwM4C4D0LgFcDGBrTvQB7AOi0IFsUB-ARwF4BvJhAXzYBoB3cfPbHIqQrV6nAKYBDaJDEAnANRMGrDoXCEARggCWwbRIB2qdBO0AbAJ7sSCSbKyR1W3fqNpbE-5FoY5FxsxsLOzQhMBqmjp6hsYSwABuALQYstpUwKaWdNCyvgBk5GFidBJwcGIGwHkZ0BJ0iQCkAEwADA0ArABCzW3tACI9SiosQA";
 
 export const Route = createRootRouteWithContext()({
   component: RootComponent,

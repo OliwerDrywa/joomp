@@ -30,15 +30,18 @@ export default async function redirect() {
   url = createRedirectUrl(query, url);
 
   document.title = `➜ ${new URL(url).hostname}`;
-
   location.replace(url);
+
+  // if the tab remains open after redirecting (e.g.: opening an app)
+  // close tab after a short delay after losing focus
+  window.onblur = () => setTimeout(() => window.close(), 5000);
 }
 
 export function parseQuery(q: string) {
   // cut bang (e.g.: `!gh`) out from query
   const bang = q.match(/!(\S+)/i)?.[1]?.toLowerCase();
   const query = q.replace(/!\S+\s*/i, "").trim(); // could be ""
-  return [bang, query] as [string | undefined, string];
+  return [bang, query] as [bang: string | undefined, search_query: string];
 }
 
 export function findUrl(bangList: string, bang?: string) {
