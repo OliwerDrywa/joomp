@@ -2,40 +2,52 @@ import { decompressFromBase64 } from "lz-string";
 
 export default async function redirect() {
   const params = new URLSearchParams(location.search);
-  try {
-    const q = params.get("q");
-    if (!q) throw new Error("missing 'q' parameter");
 
-    const b = params.get("b");
-    if (!b) throw new Error("missing 'b' parameter");
+  const q = params.get("q");
+  if (!q) throw new Error("missing 'q' parameter");
 
-    const url = getRedirectUrl(q, await decompress(b));
-    document.title = `➜ ${new URL(url).hostname}`;
+  const b = params.get("b");
+  if (!b) throw new Error("missing 'b' parameter");
 
-    location.replace(url);
-  } catch {
-    location.replace("/edit" + location.search);
+  const bangURLs = decompress(b);
+  const [bang, query] = parseQuery(q);
+
+  // try to get url from provided list
+  let url = findUrl(bangURLs, bang);
+
+  // else try to get url from default bangs
+  if (!url) {
+    const { default: defaultBangs } = await import("./bangs.min.json");
+    url = defaultBangs[bang as keyof typeof defaultBangs];
   }
+
+  // else redirect to /edit
+  if (!url) {
+    location.replace("/edit" + location.search);
+    return;
+  }
+
+  url = createRedirectUrl(query, url);
+
+  document.title = `➜ ${new URL(url).hostname}`;
+
+  location.replace(url);
 }
 
-/**
- * Get the redirect URL based on the query and links.
- * Can throw string, which is a relative URL to redirect to.
- *
- * @param query The search query, which may include a bang (e.g., `!gh`).
- * @param bangs The original URL or list of URLs to redirect through.
- * @returns The final redirect URL.
- */
-export function getRedirectUrl(query: string, bangs: string) {
+export function parseQuery(q: string) {
   // cut bang (e.g.: `!gh`) out from query
-  const bang = query.match(/!(\S+)/i)?.[1]?.toLowerCase();
-  query = query.replace(/!\S+\s*/i, "").trim(); // could be ""
+  const bang = q.match(/!(\S+)/i)?.[1]?.toLowerCase();
+  const query = q.replace(/!\S+\s*/i, "").trim(); // could be ""
+  return [bang, query] as [string | undefined, string];
+}
 
+export function findUrl(bangList: string, bang?: string) {
   let url: string | undefined;
 
   // if no bang, use the first URL in the list
   // if bang is present, find the URL that matches the bang
-  for (const row of split(bangs, ",")) {
+  // if bang is not found, returns undefined
+  for (const row of split(bangList, ",")) {
     if (!bang) {
       // if no bang, use the first URL in the list
       url = row.slice(row.lastIndexOf(">") + 1);
@@ -52,10 +64,11 @@ export function getRedirectUrl(query: string, bangs: string) {
     }
   }
 
-  if (!url) throw new Error(`no URL found for bang: ${bang}`);
+  return url;
+}
 
-  // prefix with https:// if not already present
-  // check for {any protocol}:// to allow custom protocols like ftp://
+export function createRedirectUrl(query: string, url: string) {
+  // prefix with https:// if url lacks a protocol://
   if (!url.match(/^[a-zA-Z]+:\/\//)) {
     url = "https://" + url;
   }
@@ -98,7 +111,7 @@ export function* split(
   yield str.slice(i); // the remainder
 }
 
-async function decompress(str: string) {
+export function decompress(str: string) {
   // Convert URL-safe base64 back to standard base64
   let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
   while (base64.length % 4) base64 += "="; // Add padding if needed

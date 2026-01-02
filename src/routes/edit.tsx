@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/solid-router";
 import { createEffect, createMemo, createSignal, For } from "solid-js";
 import { createStore } from "solid-js/store";
-import { compress, decompress } from "@/lib/compression";
+import { compress } from "@/lib/compression";
 import { stringify, parse } from "@/lib/parsing";
+import { decompress } from "@/lib/redirect";
 
 export const Route = createFileRoute("/edit")({
   component: IndexComponent,

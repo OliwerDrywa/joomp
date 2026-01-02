@@ -1,7 +1,8 @@
-import { decompress } from "@/lib/compression";
-import { getRedirectUrl } from "@/lib/redirect";
+import { findUrl, createRedirectUrl, parseQuery } from "@/lib/redirect";
 import { createFileRoute } from "@tanstack/solid-router";
 import { createSignal, For } from "solid-js";
+import defaultBangs from "@/lib/bangs.min.json";
+import { decompress } from "lz-string";
 
 export const Route = createFileRoute("/test")({
   component: RouteComponent,
@@ -33,12 +34,20 @@ function RedirectTester(props: { bangs: string }) {
             .map((line) => line.trim())
             .filter(Boolean)
             .map((q) => {
-              try {
-                return getRedirectUrl(q, props.bangs);
-              } catch (e) {
-                if (e instanceof Error) return e.message;
-                throw e;
+              const [bang, query] = parseQuery(q);
+              let url = findUrl(props.bangs, bang);
+
+              if (!url) {
+                url = defaultBangs[bang as keyof typeof defaultBangs];
               }
+
+              if (!url) {
+                return `Error: bang !${bang} does not match any URL`;
+              }
+
+              url = createRedirectUrl(query, url);
+
+              return url;
             })}
         >
           {(url) => <span class="flex gap-2 text-nowrap">{url}</span>}

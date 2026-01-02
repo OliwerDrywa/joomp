@@ -1,5 +1,6 @@
 import { expect, test, describe } from "bun:test";
-import { compress, decompress } from "./compression";
+import { compress } from "./compression";
+import { decompress } from "./redirect";
 
 const TEST_STRING = `
   ddg -> duckduckgo.com/?q={{{s}}}
@@ -20,21 +21,6 @@ describe("Compression utilities", () => {
       // compression entirely should be easy enought too.
       const result = compress(TEST_STRING);
       expect(result.length).toBeLessThan(TEST_STRING.length);
-      setTimeout(() => console.log(result.length / TEST_STRING.length));
-    });
-  });
-
-  describe("decompress", () => {
-    test("should decompress LZString-compressed string", () => {
-      const compressed = compress(TEST_STRING);
-      const result = decompress(compressed);
-      expect(result).toBe(TEST_STRING);
-    });
-
-    test("should throw error for empty string", () => {
-      expect(() => decompress("")).toThrow(
-        "Empty string cannot be decompressed",
-      );
     });
   });
 
@@ -44,7 +30,7 @@ describe("Compression utilities", () => {
         "simple string",
         "string with special chars: !@#$%^&*()",
         '{"json": "data", "with": ["arrays", "and", "objects"]}',
-        "a".repeat(1000), // long string
+        "long".repeat(1000),
       ];
 
       for (const data of testData) {
