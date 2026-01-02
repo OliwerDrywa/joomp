@@ -55,7 +55,8 @@ export function getRedirectUrl(query: string, bangs: string) {
   if (!url) throw new Error(`no URL found for bang: ${bang}`);
 
   // prefix with https:// if not already present
-  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+  // check for {any protocol}:// to allow custom protocols like ftp://
+  if (!url.match(/^[a-zA-Z]+:\/\//)) {
     url = "https://" + url;
   }
 

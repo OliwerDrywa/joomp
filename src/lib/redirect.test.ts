@@ -35,6 +35,14 @@ describe("getRedirectUrl", () => {
     expect(result).toBe("https://google.com/search?q=test");
   });
 
+  test("should handle obsidian URL", () => {
+    const result = getRedirectUrl(
+      "!o test",
+      "g,google>google.com/search?q={{{s}}},o>obsidian://search?q={{{s}}}",
+    );
+    expect(result).toBe("obsidian://search?q=test");
+  });
+
   test("should throw when bang not found", () => {
     expect(() =>
       getRedirectUrl(
