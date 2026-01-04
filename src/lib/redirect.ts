@@ -45,29 +45,31 @@ export function parseQuery(q: string) {
 }
 
 export function findUrl(bangList: string, bang?: string) {
-  let url: string | undefined;
+  if (!bang) {
+    // if no bang, use the first URL in the list
+    const comma = bangList.indexOf(",");
+    const row = bangList.slice(0, comma === -1 ? undefined : comma);
+    return row.slice(row.lastIndexOf(">") + 1);
+  }
 
-  // if no bang, use the first URL in the list
   // if bang is present, find the URL that matches the bang
   // if bang is not found, returns undefined
   for (const row of split(bangList, ",")) {
-    if (!bang) {
-      // if no bang, use the first URL in the list
-      url = row.slice(row.lastIndexOf(">") + 1);
-      break;
-    }
-
+    // TODO - there is a bug here!
+    // given a list like `not-short>short>url.com`
+    // `!short` will incorrectly match the `not-short>`
+    // entry, check char before, see it's part of a
+    // larger string and skip to next **row entirely**
+    //
+    // i.e.: we're assuming the bangs are sorted from smaller to largest
     const i = row.indexOf(bang + ">");
     if (i === -1) continue;
 
     if (i === 0 || row.at(i - 1) === ">") {
       const urlStart = row.lastIndexOf(">") + 1;
-      url = row.slice(urlStart);
-      break;
+      return row.slice(urlStart);
     }
   }
-
-  return url;
 }
 
 export function createRedirectUrl(query: string, url: string) {
