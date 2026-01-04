@@ -1,8 +1,12 @@
-import { findUrl, createRedirectUrl, parseQuery } from "@/lib/redirect";
+import {
+  findUrl,
+  createRedirectUrl,
+  parseQuery,
+  decompress,
+} from "@/lib/redirect";
 import { createFileRoute } from "@tanstack/solid-router";
 import { createSignal, For } from "solid-js";
 import defaultBangs from "@/lib/bangs.min.json";
-import { decompress } from "lz-string";
 
 export const Route = createFileRoute("/test")({
   component: RouteComponent,
@@ -10,13 +14,13 @@ export const Route = createFileRoute("/test")({
 
 function RouteComponent() {
   const params = Route.useSearch();
-  const [bangs] = decompress(params().b);
+  const bangs = decompress(params().b);
   return <RedirectTester bangs={bangs} />;
 }
 
 function RedirectTester(props: { bangs: string }) {
   const [testQuery, setTestQuery] = createSignal(
-    "!g <search-term>\n!yt\n!wiki url\n!foo",
+    "!g <search-term>\n!yt\n!wiki url\n!foo\n!todo be awesome",
   );
 
   return (
