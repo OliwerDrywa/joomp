@@ -8,8 +8,9 @@ import { type } from "arktype";
 // @ts-ignore -- pixelsAnimation directive is used but gets marked as unused variable
 import { getStyles, pixelsAnimation } from "@/lib/pixelAnimations";
 
+// Compressed and serialized EXAMPLE_CONFIG using the DSL format
 const DEFAULT_REDIRECT_MAP =
-  "CbDmD4AsBdoBwM4C4D0LgFcDGBrTvQB7AOi0IFsUB-ARwF4BvJhAXzYBoB3cfPbHIqQrV6nAKYBDaJDEAnANRMGrDoXCEARggCWwbRIB2qdBO0AbAJ7sSCSbKyR1W3fqNpbE-5FoY5FxsxsLOzQhMBqmjp6hsYSwABuALQYstpUwKaWdNCyvgBk5GFidBJwcGIGwHkZ0BJ0iQCkAEwADA0ArABCzW3tACI9SiosQA";
+  "DgQg7g-MBUECYFcDGBrRqDmB7AdErAtgPQD8AjgLxgCmAhgC4AW1ATgNQDeXAzgL78BcYAJBYo3OiySMosLACNuASzhLaAOwBcRIhNpTG5BKwCeFLhz78AeEyXdtRJABssEoQLmKVarTrIISqi0cHAkcLRKzmb0LMYAZNJYQdQUAFZYCCzqtM7xAG65xgC0GVk5zgCkAIwAHNTqsWYWVry2jPaOLm7UIhAKyqoajhFRJu2dOt3uwiD0WHBiwAAesv3eQ35EAUEoIWGj0RSxCUkpFPgEAA7O1PTUcMXziwVF1E9YNbWLlQBMAAz3Zb0cw8fhtOwOKauGaedaDXyOHbBULhSJHE7URKMZJIVLPLCvZwleZfH4AoEglrgiZQpww3ogeE-YY6Q7jSFdBkeEBXK5rK6sG7UZZKegmHCRXSSaTkUGWcF9QUsYWi8WSpQeWCMej0K509BoZAobB4QikSjUwTAIA";
 
 export const Route = createRootRouteWithContext()({
   component: RootComponent,

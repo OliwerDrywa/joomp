@@ -1,4 +1,4 @@
-import { decompressFromBase64 } from "lz-string";
+import { decompress } from "./compression";
 
 export default async function redirect() {
   const params = new URLSearchParams(location.search);
@@ -114,12 +114,4 @@ export function* split(
   }
 
   yield str.slice(i); // the remainder
-}
-
-export function decompress(str: string) {
-  // Convert URL-safe base64 back to standard base64
-  let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
-  while (base64.length % 4) base64 += "="; // Add padding if needed
-
-  return decompressFromBase64(base64);
 }

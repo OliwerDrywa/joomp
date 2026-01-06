@@ -1,12 +1,13 @@
-import {
-  findUrl,
-  createRedirectUrl,
-  parseQuery,
-  decompress,
-} from "@/lib/redirect";
 import { createFileRoute } from "@tanstack/solid-router";
 import { createSignal, For } from "solid-js";
+import {
+  type CommandDefinitionTree,
+  deserializeCommandTree,
+  executeCommand,
+  MATCH_ALL,
+} from "@/lib/commands";
 import defaultBangs from "@/lib/bangs.min.json";
+import { decompress } from "@/lib/compression";
 
 export const Route = createFileRoute("/test")({
   component: RouteComponent,
@@ -14,14 +15,38 @@ export const Route = createFileRoute("/test")({
 
 function RouteComponent() {
   const params = Route.useSearch();
-  const bangs = decompress(params().b);
-  return <RedirectTester bangs={bangs} />;
+  const decompressed = decompress(params().b);
+  let tree: CommandDefinitionTree | null = null;
+  if (decompressed) {
+    try {
+      tree = deserializeCommandTree(decompressed);
+    } catch {
+      tree = null;
+    }
+  }
+  return <RedirectTester tree={tree} />;
 }
 
-function RedirectTester(props: { bangs: string }) {
+/**
+ * Build a CommandDefinitionTree from the default bangs JSON.
+ * Each bang key maps to a subtree with MATCH_ALL pointing to the URL.
+ */
+function buildDefaultBangsTree(): CommandDefinitionTree {
+  const tree: CommandDefinitionTree = {
+    [MATCH_ALL]: ["https://duckduckgo.com/?q={{{s}}}"],
+  };
+  for (const [bang, url] of Object.entries(defaultBangs)) {
+    tree["!" + bang] = { [MATCH_ALL]: [url] };
+  }
+  return tree;
+}
+
+function RedirectTester(props: { tree: CommandDefinitionTree | null }) {
   const [testQuery, setTestQuery] = createSignal(
     "!g <search-term>\n!yt\n!wiki url\n!foo\n!todo be awesome",
   );
+
+  const defaultTree = buildDefaultBangsTree();
 
   return (
     <div class="flex h-64 max-w-3xl gap-2">
@@ -38,20 +63,29 @@ function RedirectTester(props: { bangs: string }) {
             .map((line) => line.trim())
             .filter(Boolean)
             .map((q) => {
-              const [bang, query] = parseQuery(q);
-              let url = findUrl(props.bangs, bang);
-
-              if (!url) {
-                url = defaultBangs[bang as keyof typeof defaultBangs];
+              // Try user's custom tree first
+              if (props.tree) {
+                try {
+                  const urls = executeCommand(q, props.tree);
+                  if (urls.length > 0) {
+                    return urls.join(" | ");
+                  }
+                } catch {
+                  // Fall through to default
+                }
               }
 
-              if (!url) {
-                return `Error: bang !${bang} does not match any URL`;
+              // Fall back to default bangs tree
+              try {
+                const urls = executeCommand(q, defaultTree);
+                if (urls.length > 0) {
+                  return urls.join(" | ");
+                }
+              } catch {
+                // Fall through to error
               }
 
-              url = createRedirectUrl(query, url);
-
-              return url;
+              return `Error: query "${q}" did not match any command`;
             })}
         >
           {(url) => <span class="flex gap-2 text-nowrap">{url}</span>}

@@ -1,6 +1,5 @@
 import { expect, test, describe } from "bun:test";
-import { compress } from "./compression";
-import { decompress } from "./redirect";
+import { compress, decompress } from "./compression";
 
 const TEST_STRING = `
   ddg -> duckduckgo.com/?q={{{s}}}

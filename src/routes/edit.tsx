@@ -1,9 +1,16 @@
 import { createFileRoute } from "@tanstack/solid-router";
 import { createEffect, createMemo, createSignal, For } from "solid-js";
 import { createStore } from "solid-js/store";
-import { compress } from "@/lib/compression";
-import { stringify, parse } from "@/lib/parsing";
-import { decompress } from "@/lib/redirect";
+import { compress, decompress } from "@/lib/compression";
+import {
+  type RedirectData,
+  deserializeCommandTree,
+  redirectDataToTree,
+  serializeCommandTree,
+  treeToRedirectData,
+  treeToDsl,
+  dslToTree,
+} from "@/lib/commands";
 
 export const Route = createFileRoute("/edit")({
   component: IndexComponent,
@@ -11,7 +18,115 @@ export const Route = createFileRoute("/edit")({
 
 function IndexComponent() {
   const params = Route.useSearch();
-  return <RichRedirectEditor b={params().b} />;
+  return <DslEditor b={params().b} />;
+  // return <RichRedirectEditor b={params().b} />;
+}
+
+function DslEditor(props: { b: string }) {
+  const navigate = Route.useNavigate();
+
+  // Parse initial tree from compressed param
+  const initialDsl = createMemo(() => {
+    const decompressed = decompress(props.b);
+    if (!decompressed) {
+      // Default example DSL
+      return `# Default fallback (when no command matches)
+... => [duckduckgo.com/?q={{{s}}}]
+
+# Commands use "..." to capture remaining text
+!gh ... => [github.com/search?q={{{s}}}]
+!gh repo ... => [github.com/{{{s}}}]
+
+!yt ... => [youtube.com/results?search_query={{{s}}}]
+
+# Without "..." means exact match (no trailing text)
+!yt => [youtube.com]
+`;
+    }
+    try {
+      const tree = deserializeCommandTree(decompressed);
+      return treeToDsl(tree);
+    } catch {
+      return "# Error parsing existing data\n... => [duckduckgo.com/?q={{{s}}}]\n";
+    }
+  });
+
+  const [dsl, setDsl] = createSignal(initialDsl());
+  const [error, setError] = createSignal<string | null>(null);
+
+  // Update dsl when props.b changes
+  createEffect(() => {
+    setDsl(initialDsl());
+  });
+
+  // Validate and compute compressed output
+  const compressedBangs = createMemo(() => {
+    try {
+      const tree = dslToTree(dsl());
+      setError(null);
+      const serialized = serializeCommandTree(tree);
+      return compress(serialized);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Invalid syntax");
+      return props.b; // Return original on error
+    }
+  });
+
+  const hasChanges = createMemo(
+    () => compressedBangs() !== props.b && !error(),
+  );
+
+  return (
+    <>
+      <UrlPreview url={"/x?q=%s&b=" + compressedBangs()} />
+
+      <form
+        class="flex flex-col gap-4 border border-neutral-400 p-4"
+        onsubmit={(e) => {
+          e.preventDefault();
+          if (error()) return;
+
+          navigate({
+            to: "/edit",
+            search: { b: compressedBangs() },
+          });
+        }}
+      >
+        <div class="flex flex-col gap-2">
+          <label class="text-sm text-neutral-500">
+            Command definitions (<code>!cmd ...</code> = with text,{" "}
+            <code>!cmd</code> = exact match)
+          </label>
+          <textarea
+            class="h-96 w-full resize-y border p-3 font-mono text-sm text-nowrap dark:border-neutral-400 dark:bg-neutral-900"
+            value={dsl()}
+            onInput={(e) => setDsl(e.currentTarget.value)}
+            spellcheck={false}
+          />
+          {error() && <div class="text-sm text-red-500">Error: {error()}</div>}
+        </div>
+
+        <fieldset class="flex flex-row gap-2">
+          <button
+            type="button"
+            class="ms-auto cursor-pointer border p-2 disabled:cursor-not-allowed disabled:text-neutral-400 dark:border-neutral-400"
+            disabled={!hasChanges()}
+            onClick={() => setDsl(initialDsl())}
+          >
+            Undo
+          </button>
+
+          <button
+            type="submit"
+            class="cursor-pointer border p-2 disabled:cursor-not-allowed disabled:text-neutral-400 dark:border-neutral-400"
+            disabled={!hasChanges()}
+          >
+            Save to URL
+          </button>
+        </fieldset>
+      </form>
+    </>
+  );
 }
 
 function UrlPreview(props: { url: string }) {
@@ -45,13 +160,30 @@ function UrlPreview(props: { url: string }) {
   );
 }
 
-function RichRedirectEditor(props: { b: string }) {
+function parseRedirects(b: string): RedirectData[] {
+  const decompressed = decompress(b);
+  if (!decompressed) return [];
+  try {
+    const tree = deserializeCommandTree(decompressed);
+    return treeToRedirectData(tree);
+  } catch {
+    return [];
+  }
+}
+
+function serializeRedirects(rows: RedirectData[]): string {
+  const tree = redirectDataToTree(rows);
+  return serializeCommandTree(tree);
+}
+
+/** @deprecated Use YamlEditor instead - kept for reference */
+export function RichRedirectEditor(props: { b: string }) {
   const navigate = Route.useNavigate();
 
-  const redirects = parse(decompress(props.b));
+  const redirects = parseRedirects(props.b);
 
-  const [rows, setRows] = createStore([...redirects, { bangs: [], url: "" }]);
-  createEffect(() => setRows([...redirects, { bangs: [], url: "" }])); // update editor if `props.redirects` changes
+  const [rows, setRows] = createStore([...redirects, { bangs: [], urls: [] }]);
+  createEffect(() => setRows([...redirects, { bangs: [], urls: [] }])); // update editor if `props.redirects` changes
 
   const [focus, setFocus] = createSignal<number>();
   const [search, setSearch] = createSignal("");
@@ -144,7 +276,7 @@ function RichRedirectEditor(props: { b: string }) {
         const s = search().toLowerCase();
         if (!s) return true; // return all rows if we're not searching
 
-        for (const term of [...row.bangs, row.url]) {
+        for (const term of [...row.bangs, ...row.urls]) {
           let searchIndex = 0;
 
           const t = term.toLowerCase();
@@ -162,7 +294,11 @@ function RichRedirectEditor(props: { b: string }) {
 
   createEffect(() => {
     for (let i = 0; i < rows.length - 1; i++) {
-      if (rows[i].bangs.length === 0 && !rows[i].url && focus() !== i) {
+      if (
+        rows[i].bangs.length === 0 &&
+        rows[i].urls.length === 0 &&
+        focus() !== i
+      ) {
         setRows([...rows.slice(0, i), ...rows.slice(i + 1)]);
         i--;
       }
@@ -172,13 +308,13 @@ function RichRedirectEditor(props: { b: string }) {
   createEffect(() => {
     const lastRow = rows.at(-1);
     if (!lastRow) return;
-    if (lastRow.bangs.length > 0 || lastRow.url) {
-      setRows(rows.length, { bangs: [], url: "" });
+    if (lastRow.bangs.length > 0 || lastRow.urls.length > 0) {
+      setRows(rows.length, { bangs: [], urls: [] });
     }
   });
 
   const compressedBangs = createMemo(() => {
-    const str = stringify(rows);
+    const str = serializeRedirects(rows);
     return compress(str);
   });
 
@@ -252,24 +388,28 @@ function RichRedirectEditor(props: { b: string }) {
                     id={String(i * 2 + 1)}
                     class="w-0 flex-1 dark:text-neutral-200"
                     type="text"
-                    // (use `{{{s}}}` as placeholder for search queries)
-                    placeholder="domain.com/?q={{{s}}}"
-                    value={row.url}
+                    // Multiple URLs separated by " | " (use `{{{s}}}` for search queries)
+                    placeholder="url1 | url2 | url3"
+                    value={row.urls.join(" | ")}
                     onFocus={() => setFocus(i)}
                     onBlur={() => setFocus((f) => (f === i ? undefined : f))}
                     onKeyDown={handleKeyNavigation(i * 2 + 1)}
                     onChange={(e) => {
-                      const newUrl = e.currentTarget.value.trim();
+                      const newUrls = e.currentTarget.value
+                        .split("|")
+                        .map((u) => u.trim())
+                        .filter(Boolean);
 
-                      if (row.url === newUrl) {
-                        // we have to trim the input manually here
-                        // because setRows will not bang a re-render
-                        // if the string is the same before and after
-                        e.currentTarget.value = newUrl;
+                      const currentUrls = row.urls.join(" | ");
+                      const newUrlsStr = newUrls.join(" | ");
+
+                      if (currentUrls === newUrlsStr) {
+                        // Normalize the input display
+                        e.currentTarget.value = newUrlsStr;
                         return;
                       }
 
-                      setRows(i, "url", newUrl);
+                      setRows(i, "urls", newUrls);
                     }}
                   />
                 </label>
@@ -281,9 +421,9 @@ function RichRedirectEditor(props: { b: string }) {
         <fieldset class="flex flex-row gap-2">
           <button
             class="ms-auto cursor-pointer border p-2 disabled:cursor-not-allowed disabled:text-neutral-400 dark:border-neutral-400"
-            disabled={compress(stringify(rows)) === props.b}
+            disabled={compress(serializeRedirects(rows)) === props.b}
             onClick={() => {
-              setRows([...redirects, { bangs: [], url: "" }]);
+              setRows([...redirects, { bangs: [], urls: [] }]);
             }}
           >
             Undo
@@ -292,7 +432,7 @@ function RichRedirectEditor(props: { b: string }) {
           <button
             type="submit"
             class="cursor-pointer border p-2 disabled:cursor-not-allowed disabled:text-neutral-400 dark:border-neutral-400"
-            disabled={compress(stringify(rows)) === props.b}
+            disabled={compress(serializeRedirects(rows)) === props.b}
           >
             Save to URL
           </button>
