@@ -7,9 +7,21 @@ import { TanStackRouterDevtools } from "@tanstack/solid-router-devtools";
 import { type } from "arktype";
 // @ts-ignore -- pixelsAnimation directive is used but gets marked as unused variable
 import { getStyles, pixelsAnimation } from "@/lib/pixelAnimations";
+import RedirectMap from "@/lib/redirectTree";
 
-const DEFAULT_REDIRECT_MAP =
-  "CbDmD4AsBdoBwM4C4D0LgFcDGBrTvQB7AOi0IFsUB-ARwF4BvJhAXzYBoB3cfPbHIqQrV6nAKYBDaJDEAnANRMGrDoXCEARggCWwbRIB2qdBO0AbAJ7sSCSbKyR1W3fqNpbE-5FoY5FxsxsLOzQhMBqmjp6hsYSwABuALQYstpUwKaWdNCyvgBk5GFidBJwcGIGwHkZ0BJ0iQCkAEwADA0ArABCzW3tACI9SiosQA";
+const DEFAULT_REDIRECT_MAP = RedirectMap.fromDSL`
+!pp => ["perplexity.ai"]
+!pp ... => ["perplexity.ai/search?q={{{s}}}"]
+!w ... => ["duckduckgo.com/?q=weather+{{{s}}}"]
+!o => ["obsidian://daily"]
+!o search ... => ["obsidian://search?query={{{s}}}"]
+!o ... => ["obsidian://quickadd?daily=true&choice=journal&value-journal%18entry={{{s}}}"]
+!todo => ["obsidian://daily"]
+!todo x ... => ["obsidian://quickadd?daily=true&choice=completed-todo&value-to%18do%20text={{{s}}}"]
+!todo ... => ["obsidian://quickadd?daily=true&choice=todo&value-to%18do%20text={{{s}}}"]
+!steam ... => ["steam://open/bigpicture"]
+... => ["https://duckduckgo.com/?q={{{s}}}"]
+`.toString();
 
 export const Route = createRootRouteWithContext()({
   component: RootComponent,

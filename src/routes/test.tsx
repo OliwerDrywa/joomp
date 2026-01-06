@@ -1,12 +1,6 @@
-import {
-  findUrl,
-  createRedirectUrl,
-  parseQuery,
-  decompress,
-} from "@/lib/redirect";
 import { createFileRoute } from "@tanstack/solid-router";
 import { createSignal, For } from "solid-js";
-import defaultBangs from "@/lib/bangs.min.json";
+import RedirectMap from "@/lib/redirectTree";
 
 export const Route = createFileRoute("/test")({
   component: RouteComponent,
@@ -14,11 +8,11 @@ export const Route = createFileRoute("/test")({
 
 function RouteComponent() {
   const params = Route.useSearch();
-  const bangs = decompress(params().b);
-  return <RedirectTester bangs={bangs} />;
+  const tree = RedirectMap.fromString(params().b);
+  return <RedirectTester tree={tree} />;
 }
 
-function RedirectTester(props: { bangs: string }) {
+function RedirectTester(props: { tree: RedirectMap }) {
   const [testQuery, setTestQuery] = createSignal(
     "!g <search-term>\n!yt\n!wiki url\n!foo\n!todo be awesome",
   );
@@ -38,20 +32,35 @@ function RedirectTester(props: { bangs: string }) {
             .map((line) => line.trim())
             .filter(Boolean)
             .map((q) => {
-              const [bang, query] = parseQuery(q);
-              let url = findUrl(props.bangs, bang);
-
-              if (!url) {
-                url = defaultBangs[bang as keyof typeof defaultBangs];
+              // Try user's custom tree first
+              if (props.tree) {
+                try {
+                  const urls = props.tree.getRedirectUrls(q);
+                  if (urls.length > 0) {
+                    return urls.toString();
+                  }
+                } catch {
+                  // Fall through to default
+                }
               }
 
-              if (!url) {
-                return `Error: bang !${bang} does not match any URL`;
-              }
+              // // Fall back to default ddg bangs
+              // try {
+              //   const [bang, query] = parseQuery(q);
+              //   if (!bang) {
+              //   }
 
-              url = createRedirectUrl(query, url);
+              //   defaultBangs[bang];
 
-              return url;
+              //   const urls = defaultTree.navigate(q);
+              //   if (urls.length > 0) {
+              //     return urls.join(" | ");
+              //   }
+              // } catch {
+              //   // Fall through to error
+              // }
+
+              return `Error: query "${q}" did not match any command`;
             })}
         >
           {(url) => <span class="flex gap-2 text-nowrap">{url}</span>}

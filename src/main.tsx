@@ -13,8 +13,6 @@ const router = createRouter({
     types: ({ fromLocation, toLocation }) => {
       const ROUTE_ORDER = ["/", "/edit", "/test"];
 
-      console.log(fromLocation?.pathname, "->", toLocation.pathname);
-
       const from = ROUTE_ORDER.indexOf(fromLocation?.pathname ?? "");
       const to = ROUTE_ORDER.indexOf(toLocation?.pathname ?? "");
       if (from === -1 || to === -1 || from === to) return [];
