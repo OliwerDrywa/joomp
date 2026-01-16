@@ -15,18 +15,18 @@ import {
 } from "./commands";
 
 const EXPECTED_DSL = `
-!pp     => [perplexity.ai]
-!pp ... => [perplexity.ai/search?q={{{s}}}]
-!w ... => [duckduckgo.com/?q=weather+{{{s}}}]
-!o            => [obsidian://daily, this://close]
-!o search ... => [obsidian://search?query={{{s}}}, this://close]
-!o ...        => [obsidian://quickadd?daily=true&choice=journal&value-journal%18entry={{{s}}}, this://close]
-!todo       => [obsidian://daily, this://close]
-!todo x ... => [obsidian://quickadd?daily=true&choice=completed-todo&value-to%18do%20text={{{s}}}, this://close]
-!todo ...   => [obsidian://quickadd?daily=true&choice=todo&value-to%18do%20text={{{s}}}, this://close]
-!steam => [steam://open/bigpicture]
-... => https://duckduckgo.com/?q={{{s}}}
-`
+!pp => ["perplexity.ai"]
+!pp ... => ["perplexity.ai/search?q={{{s}}}"]
+!w ... => ["duckduckgo.com/?q=weather+{{{s}}}"]
+!o => ["obsidian://daily","this://close"]
+!o search ... => ["obsidian://search?query={{{s}}}","this://close"]
+!o ... => ["obsidian://quickadd?daily=true&choice=journal&value-journal%18entry={{{s}}}","this://close"]
+!todo => ["obsidian://daily","this://close"]
+!todo x ... => ["obsidian://quickadd?daily=true&choice=completed-todo&value-to%18do%20text={{{s}}}","this://close"]
+!todo ... => ["obsidian://quickadd?daily=true&choice=todo&value-to%18do%20text={{{s}}}","this://close"]
+!steam => ["steam://open/bigpicture"]
+... => ["https://duckduckgo.com/?q={{{s}}}"]
+`.trim();
 
 describe("executeCommand", () => {
   for (const { input, expected } of [
@@ -460,7 +460,7 @@ describe("redirectDataToTree / treeToRedirectData", () => {
 describe("treeToDsl / dslToTree", () => {
   test("treeToDsl(EXAMPLE_CONFIG) matches expected DSL format", () => {
     const dsl = treeToDsl(EXAMPLE_CONFIG);
-    expect(dsl).toEqual(EXPECTED_DSL.trim());
+    expect(dsl).toEqual(EXPECTED_DSL);
   });
 
   test("round-trip: dslToTree(treeToDsl(tree)) preserves structure", () => {

@@ -31,23 +31,23 @@ function DslEditor(props: { b: string }) {
     if (!decompressed) {
       // Default example DSL
       return `# Default fallback (when no command matches)
-... => [duckduckgo.com/?q={{{s}}}]
+... => ["duckduckgo.com/?q={{{s}}}"]
 
 # Commands use "..." to capture remaining text
-!gh ... => [github.com/search?q={{{s}}}]
-!gh repo ... => [github.com/{{{s}}}]
+!gh ... => ["github.com/search?q={{{s}}}"]
+!gh repo ... => ["github.com/{{{s}}}"]
 
-!yt ... => [youtube.com/results?search_query={{{s}}}]
+!yt ... => ["youtube.com/results?search_query={{{s}}}"]
 
 # Without "..." means exact match (no trailing text)
-!yt => [youtube.com]
+!yt => ["youtube.com"]
 `;
     }
     try {
       const tree = deserializeCommandTree(decompressed);
       return treeToDsl(tree);
     } catch {
-      return "# Error parsing existing data\n... => [duckduckgo.com/?q={{{s}}}]\n";
+      return '# Error parsing existing data\n... => ["duckduckgo.com/?q={{{s}}}"]\n';
     }
   });
 

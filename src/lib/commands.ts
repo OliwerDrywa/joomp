@@ -18,13 +18,10 @@ export const EXAMPLE_CONFIG: CommandDefinitionTree = {
   },
 
   "!o": {
-    search: {
-      [MATCH_ALL]: ["obsidian://search?query={{{s}}}", "this://close"],
-    },
-    [MATCH_NONE]: ["obsidian://daily", "this://close"],
+    search: { [MATCH_ALL]: ["obsidian://search?query={{{s}}}"] },
+    [MATCH_NONE]: ["obsidian://daily"],
     [MATCH_ALL]: [
       "obsidian://quickadd?daily=true&choice=journal&value-journal%18entry={{{s}}}",
-      "this://close",
     ],
   },
 
@@ -32,13 +29,11 @@ export const EXAMPLE_CONFIG: CommandDefinitionTree = {
     x: {
       [MATCH_ALL]: [
         "obsidian://quickadd?daily=true&choice=completed-todo&value-to%18do%20text={{{s}}}",
-        "this://close",
       ],
     },
-    [MATCH_NONE]: ["obsidian://daily", "this://close"],
+    [MATCH_NONE]: ["obsidian://daily"],
     [MATCH_ALL]: [
       "obsidian://quickadd?daily=true&choice=todo&value-to%18do%20text={{{s}}}",
-      "this://close",
     ],
   },
 
@@ -71,7 +66,7 @@ const US = "\x1F"; // Unit Separator - Key/value separator
 const MATCH_ALL_KEY = "*";
 const MATCH_NONE_KEY = "!";
 
-export function serializeCommandTree(tree: CommandDefinitionTree): string {
+export function serializeCommandTree(tree: CommandDefinitionTree) {
   let result = FS;
 
   // Get all keys including symbols
@@ -100,9 +95,7 @@ export function serializeCommandTree(tree: CommandDefinitionTree): string {
   return result;
 }
 
-export function deserializeCommandTree(
-  serialized: string,
-): CommandDefinitionTree {
+export function deserializeCommandTree(serialized: string) {
   const result = parseNode(serialized, 0);
   return result.tree;
 }
@@ -238,7 +231,7 @@ export function redirectDataToTree(
 export function treeToRedirectData(
   tree: CommandDefinitionTree,
   prefix: string[] = [],
-): RedirectData[] {
+) {
   const result: RedirectData[] = [];
 
   // Add entries for string keys (nested subtrees)
@@ -263,17 +256,16 @@ export function treeToRedirectData(
 
 // --- DSL Serialization ---
 // Format:
-//   !cmd             => [url1]        # MATCH_NONE (exact match, no trailing text)
-//   !cmd subword ... => [url1, url2]  # subcommands
-//   !cmd ...         => [url1, url2]  # MATCH_ALL (wildcard, last)
-//   ... => fallback-url               # root fallback (very last, no brackets)
+//   !cmd             => ["url"]             # MATCH_NONE (exact match)
+//   !cmd subword ... => ["url1","url2"]     # subcommand with MATCH_ALL
+//   !cmd ...         => ["url1","url2"]     # MATCH_ALL (wildcard)
+//   ... => ["fallback-url"]                 # root fallback (last line)
 //
-// `...` means "match any remaining text" (MATCH_ALL)
-// No `...` means "match empty" (MATCH_NONE)
+// "..." is treated as a word meaning MATCH_ALL (match any remaining text)
+// No "..." means MATCH_NONE (exact match)
 
 type DslEntry = {
-  words: string[]; // e.g., ["!o", "search"]
-  hasRest: boolean; // true if ends with `...`
+  words: string[]; // e.g., ["!o", "search", "..."] - "..." means MATCH_ALL
   urls: string[];
 };
 
@@ -291,7 +283,6 @@ function collectEntries(
   if (tree[MATCH_NONE] && tree[MATCH_NONE].length > 0) {
     entries.push({
       words: prefix,
-      hasRest: false,
       urls: [...tree[MATCH_NONE]],
     });
   }
@@ -301,11 +292,10 @@ function collectEntries(
     entries.push(...collectEntries(tree[key], [...prefix, key]));
   }
 
-  // 3. Handle MATCH_ALL last (wildcard)
+  // 3. Handle MATCH_ALL last (wildcard) - add "..." as a word
   if (tree[MATCH_ALL] && tree[MATCH_ALL].length > 0) {
     entries.push({
-      words: prefix,
-      hasRest: true,
+      words: [...prefix, "..."],
       urls: [...tree[MATCH_ALL]],
     });
   }
@@ -316,32 +306,12 @@ function collectEntries(
 /**
  * Serialize CommandDefinitionTree to DSL string.
  */
-export function treeToDsl(tree: CommandDefinitionTree): string {
-  const allEntries = collectEntries(tree);
-
-  // Separate root fallback from other entries
-  const rootFallback = allEntries.find(
-    (e) => e.words.length === 0 && e.hasRest,
-  );
-  const entries = allEntries.filter((e) => e !== rootFallback);
-
+export function treeToDsl(tree: CommandDefinitionTree) {
   const lines: string[] = [];
 
-  for (const { words, hasRest, urls } of entries) {
-    const urlList = "[" + urls.join(", ") + "]";
-    let left: string;
-    if (words.length === 0) {
-      left = hasRest ? "..." : "";
-    } else {
-      const cmd = words.join(" ");
-      left = hasRest ? `${cmd} ...` : cmd;
-    }
-    lines.push(`${left} => ${urlList}`);
-  }
-
-  // Add root fallback at the very end (without brackets)
-  if (rootFallback) {
-    lines.push(`... => ${rootFallback.urls.join(", ")}`);
+  for (const { words, urls } of collectEntries(tree)) {
+    const left = words.join(" ");
+    lines.push(`${left} => ${JSON.stringify(urls)}`);
   }
 
   return lines.join("\n");
@@ -366,19 +336,24 @@ export function dslToTree(dsl: string) {
     const left = line.slice(0, arrowIndex).trim();
     const right = line.slice(arrowIndex + 2).trim();
 
-    // Parse URLs from `[url1, url2]`
-    const urls = parseUrlList(right);
+    // Parse URLs from JSON array
+    let urls: string[];
+    try {
+      urls = JSON.parse(right);
+      if (!Array.isArray(urls)) continue;
+    } catch {
+      continue; // Invalid JSON, skip line
+    }
     if (urls.length === 0) continue;
 
     // Parse left side: `!cmd subword ...` or `!cmd subword` or `...`
-    const hasRest = left.endsWith("...");
-    const wordsStr = hasRest ? left.slice(0, -3).trim() : left;
-    const words = wordsStr ? wordsStr.split(/\s+/) : [];
+    const words = left ? left.split(/\s+/) : [];
+    const hasRest = words.at(-1) === "...";
+    if (hasRest) words.pop(); // Remove "..." from words
 
     // Insert into tree
     let current = tree;
-    for (let i = 0; i < words.length; i++) {
-      const word = words[i];
+    for (const word of words) {
       if (!current[word]) {
         current[word] = { [MATCH_ALL]: [] };
       }
@@ -394,25 +369,6 @@ export function dslToTree(dsl: string) {
   }
 
   return tree;
-}
-
-/**
- * Parse URL list from `[url1, url2]` format.
- */
-function parseUrlList(str: string) {
-  // Remove brackets if present
-  let s = str.trim();
-  if (s.startsWith("[") && s.endsWith("]")) {
-    s = s.slice(1, -1);
-  }
-
-  if (!s) return [];
-
-  // Split by comma, but be careful with URLs containing commas (rare but possible)
-  return s
-    .split(",")
-    .map((u) => u.trim())
-    .filter(Boolean);
 }
 
 export function executeCommand(
