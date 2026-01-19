@@ -30,38 +30,7 @@ function RedirectTester(props: { tree: RedirectMap }) {
           each={testQuery()
             .split("\n")
             .map((line) => line.trim())
-            .filter(Boolean)
-            .map((q) => {
-              // Try user's custom tree first
-              if (props.tree) {
-                try {
-                  const urls = props.tree.getRedirectUrls(q);
-                  if (urls.length > 0) {
-                    return urls.toString();
-                  }
-                } catch {
-                  // Fall through to default
-                }
-              }
-
-              // // Fall back to default ddg bangs
-              // try {
-              //   const [bang, query] = parseQuery(q);
-              //   if (!bang) {
-              //   }
-
-              //   defaultBangs[bang];
-
-              //   const urls = defaultTree.navigate(q);
-              //   if (urls.length > 0) {
-              //     return urls.join(" | ");
-              //   }
-              // } catch {
-              //   // Fall through to error
-              // }
-
-              return `Error: query "${q}" did not match any command`;
-            })}
+            .map((q) => props.tree.getRedirectUrls(q))}
         >
           {(url) => <span class="flex gap-2 text-nowrap">{url}</span>}
         </For>

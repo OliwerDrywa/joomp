@@ -280,7 +280,7 @@ const NAVIGATION_TEST_CASES = [
   },
   {
     input: "!w",
-    output: ["https://duckduckgo.com/?q=weather+"],
+    output: ["https://duckduckgo.com"],
   },
   {
     input: "!o search project ideas",
@@ -334,8 +334,8 @@ const NAVIGATION_TEST_CASES = [
     ],
   },
   {
-    input: "!wiki",
-    output: ["http://en.wikipedia.org/wiki/Special:Search?search=!wiki&go=Go"],
+    input: "!wiki foo",
+    output: ["http://en.wikipedia.org/wiki/Special:Search?search=foo&go=Go"],
   },
 ];
 

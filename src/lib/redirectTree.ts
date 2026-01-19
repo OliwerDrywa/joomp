@@ -1,5 +1,6 @@
 import defaultBangs from "@/lib/bangs.min.json";
 import { compressToBase64, decompressFromBase64 } from "lz-string";
+// import { parseQuery } from "./redirect";
 
 function treeToDsl(tree: RedirectTree) {
   const lines: string[] = [];
@@ -272,15 +273,23 @@ function defaultToHttps(uri: string) {
   if (uri.match(/^[a-zA-Z]+:\/\//)) return uri;
   return "https://" + uri;
 }
-function insertUrlQuery(url: string, query: string): string {
+
+export function insertUrlQuery(url: string, query: string) {
+  // if the query is empty (after cutting out the bang `!gh`) -
+  // use `https://github.com` instead of `https://github.com/search?q=
+  if (!query && url.includes("{{{s}}}")) {
+    return new URL(url).origin;
+  }
+
   // Encode query, but preserve forward slashes for paths like `t3dotgg/unduck`
   const encodedQuery = encodeURIComponent(query).replace(/%2F/g, "/");
   return url.replaceAll("{{{s}}}", encodedQuery);
 }
+
 function getUrlsFromRedirectTree(
   query: string,
   tree: RedirectTree,
-  defaultsTo?: "ddg",
+  getDefaultValue?: (query: string) => undefined | string[],
 ) {
   const nextWord = query.trimStart().match(/^\s*(\S+)/)?.[0];
 
@@ -295,32 +304,11 @@ function getUrlsFromRedirectTree(
     );
   }
 
-  // console.log("HERE");
-  // console.log(
-  //   defaultsTo,
-  //   nextWord,
-  //   defaultBangs[nextWord as keyof typeof defaultBangs],
-  // );
-
-  if (nextWord && nextWord.startsWith("!")) {
-    const bang = nextWord.slice(1);
-
-    if (
-      defaultsTo === "ddg" &&
-      bang in defaultBangs &&
-      defaultBangs[bang as keyof typeof defaultBangs]
-    ) {
-      return [
-        insertUrlQuery(
-          defaultToHttps(defaultBangs[bang as keyof typeof defaultBangs]),
-          query,
-        ),
-      ];
-    }
-  }
-
-  return tree[MATCH_ALL].map(defaultToHttps).map((url) =>
-    insertUrlQuery(url, query.trimStart()),
+  return (
+    getDefaultValue?.(query) ??
+    tree[MATCH_ALL].map((url) =>
+      insertUrlQuery(defaultToHttps(url), query.trimStart()),
+    )
   );
 }
 
@@ -347,6 +335,21 @@ export default class RedirectMap {
   }
 
   getRedirectUrls(q: string) {
-    return getUrlsFromRedirectTree(q, this.tree, "ddg");
+    return getUrlsFromRedirectTree(q, this.tree, this.#defaultToDdgBangs);
+  }
+
+  #defaultToDdgBangs(q: string) {
+    // cut bang (e.g.: `!gh`) out from query
+    const bang = q.match(/!(\S+)/i)?.[1]?.toLowerCase();
+    const query = q.replace(/!\S+\s*/i, "").trim(); // could be ""
+
+    if (!bang) return;
+
+    if (bang in defaultBangs) {
+      type Key = keyof typeof defaultBangs;
+      const url = defaultToHttps(defaultBangs[bang as Key]);
+
+      return [insertUrlQuery(url, query)];
+    }
   }
 }
