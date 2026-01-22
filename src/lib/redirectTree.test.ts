@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import RedirectMap, {
-  type RedirectTree,
+  type AbstractTree,
   MATCH_ALL,
   MATCH_NONE,
 } from "./redirectTree";
@@ -25,7 +25,7 @@ const DSL_TEST_CASES = [
     },
 
     dsl: `
-      ... => ["duckduckgo.com/?q={{{s}}}"]
+      ... => duckduckgo.com/?q={{{s}}}
     `,
   },
 
@@ -52,8 +52,8 @@ const DSL_TEST_CASES = [
     },
 
     dsl: `
-      # !pp ... => ["perplexity.ai/search?q={{{s}}}"]
-      ... => ["duckduckgo.com/?q={{{s}}}"]
+      # !pp ... => perplexity.ai/search?q={{{s}}}
+      ... => duckduckgo.com/?q={{{s}}}
 
       # p.s.: have a nice day
     `,
@@ -70,8 +70,8 @@ const DSL_TEST_CASES = [
     },
 
     dsl: `
-      !pp ... => ["perplexity.ai/search?q={{{s}}}"]
-      ... => ["duckduckgo.com/?q={{{s}}}"]
+      !pp ... => perplexity.ai/search?q={{{s}}}
+      ... => duckduckgo.com/?q={{{s}}}
     `,
   },
 
@@ -88,9 +88,9 @@ const DSL_TEST_CASES = [
     },
 
     dsl: `
-      !pp => ["perplexity.ai"]
-      !pp ... => ["perplexity.ai/search?q={{{s}}}"]
-      ... => ["duckduckgo.com/?q={{{s}}}"]
+      !pp => perplexity.ai
+      !pp ... => perplexity.ai/search?q={{{s}}}
+      ... => duckduckgo.com/?q={{{s}}}
     `,
   },
 
@@ -115,11 +115,11 @@ const DSL_TEST_CASES = [
     },
 
     dsl: `
-      !pp => ["perplexity.ai"]
-      !pp ... => ["perplexity.ai/search?q={{{s}}}"]
-      !w ... => ["duckduckgo.com/?q=weather+{{{s}}}"]
-      !steam ... => ["steam://open/bigpicture"]
-      ... => ["duckduckgo.com/?q={{{s}}}"]
+      !pp => perplexity.ai
+      !pp ... => perplexity.ai/search?q={{{s}}}
+      !w ... => duckduckgo.com/?q=weather+{{{s}}}
+      !steam ... => steam://open/bigpicture
+      ... => duckduckgo.com/?q={{{s}}}
     `,
   },
 
@@ -138,7 +138,7 @@ const DSL_TEST_CASES = [
 
     dsl: `
       !test ... => ["example.com/path?a=1&b=2","custom://app?param={{{s}}}&other=value"]
-      ... => ["search.com/?q={{{s}}}&lang=en"]
+      ... => search.com/?q={{{s}}}&lang=en
     `,
   },
 
@@ -160,10 +160,10 @@ const DSL_TEST_CASES = [
     },
 
     dsl: `
-      !o => ["obsidian://daily"]
-      !o search ... => ["obsidian://search?query={{{s}}}"]
-      !o ... => ["obsidian://quickadd?daily=true&choice=journal&value-journal%18entry={{{s}}}"]
-      ... => ["duckduckgo.com/?q={{{s}}}"]
+      !o => obsidian://daily
+      !o search ... => obsidian://search?query={{{s}}}
+      !o ... => obsidian://quickadd?daily=true&choice=journal&value-journal%18entry={{{s}}}
+      ... => duckduckgo.com/?q={{{s}}}
     `,
   },
 
@@ -213,20 +213,20 @@ const DSL_TEST_CASES = [
     },
 
     dsl: `
-      !pp => ["perplexity.ai"]
-      !pp ... => ["perplexity.ai/search?q={{{s}}}"]
-      !w ... => ["duckduckgo.com/?q=weather+{{{s}}}"]
-      !o => ["obsidian://daily"]
-      !o search ... => ["obsidian://search?query={{{s}}}"]
-      !o ... => ["obsidian://quickadd?daily=true&choice=journal&value-journal%18entry={{{s}}}"]
-      !todo => ["obsidian://daily"]
-      !todo x ... => ["obsidian://quickadd?daily=true&choice=completed-todo&value-to%18do%20text={{{s}}}"]
-      !todo ... => ["obsidian://quickadd?daily=true&choice=todo&value-to%18do%20text={{{s}}}"]
+      !pp => perplexity.ai
+      !pp ... => perplexity.ai/search?q={{{s}}}
+      !w ... => duckduckgo.com/?q=weather+{{{s}}}
+      !o => obsidian://daily
+      !o search ... => obsidian://search?query={{{s}}}
+      !o ... => obsidian://quickadd?daily=true&choice=journal&value-journal%18entry={{{s}}}
+      !todo => obsidian://daily
+      !todo x ... => obsidian://quickadd?daily=true&choice=completed-todo&value-to%18do%20text={{{s}}}
+      !todo ... => obsidian://quickadd?daily=true&choice=todo&value-to%18do%20text={{{s}}}
       !steam ... => ["obsidian://quickadd?choice=gaming%20log","steam://open/bigpicture"]
-      ... => ["duckduckgo.com/?q={{{s}}}"]
+      ... => duckduckgo.com/?q={{{s}}}
     `,
   },
-] as { label: string; tree: RedirectTree; dsl: string }[];
+] as { label: string; tree: AbstractTree; dsl: string }[];
 
 describe("DSL > roundtrip", () => {
   for (const { label, tree } of DSL_TEST_CASES) {
@@ -264,10 +264,10 @@ describe("DSL > RedirectMap.toDSL()", () => {
 
 describe("Stringification > roundtrip", () => {
   for (const { label, tree } of DSL_TEST_CASES) {
-    const str = new RedirectMap(tree).toString();
+    const str = new RedirectMap(tree).serialize();
 
     test(label, () => {
-      expect(RedirectMap.fromString(str).tree).toEqual(tree);
+      expect(RedirectMap.deserialize(str).tree).toEqual(tree);
     });
   }
 });
@@ -351,33 +351,39 @@ describe("Redirects > RedirectMap.getRedirectUrls(...)", () => {
 describe("Redirects > redirect()", () => {
   for (const { input, output } of NAVIGATION_TEST_CASES) {
     test(`"${input}"`, () => {
-      Object.defineProperty(global, "document", {
-        value: { title: "" },
-        writable: true,
-      });
+      let redirectedTo: undefined | string;
+      const newTabs = [] as string[];
 
-      const redirects = [] as string[];
-      Object.defineProperty(global, "location", {
-        value: {
+      global.window = {
+        open(url: string, target: string) {
+          if (target === "_self") return;
+          newTabs.push(url);
+        },
+
+        document: { title: "➜ ..." },
+
+        location: {
           search: new URLSearchParams({
             q: encodeURI(input),
-            b: new RedirectMap(NAVIGATION_TREE).toString(),
-          }).toString(),
+            b: new RedirectMap(NAVIGATION_TREE).serialize(),
+          }),
 
           replace(url: string) {
-            redirects.push(url);
+            console.log("settings redirectTo to", url);
+            redirectedTo = url;
           },
         },
         writable: true,
-      });
-
-      // Object.defineProperty(global, "window", {
-      //   value: { onblur() {} },
-      //   writable: true,
-      // });
+      } as any;
 
       redirect();
-      expect(redirects).toEqual(output);
+      if (output.length === 1) {
+        expect(redirectedTo).toBe(output[0]);
+        expect(newTabs.length).toEqual(0);
+      } else {
+        expect(redirectedTo).toBeUndefined();
+        expect(newTabs).toEqual(output);
+      }
     });
   }
 });

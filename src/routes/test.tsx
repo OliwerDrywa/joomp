@@ -8,7 +8,7 @@ export const Route = createFileRoute("/test")({
 
 function RouteComponent() {
   const params = Route.useSearch();
-  const tree = RedirectMap.fromString(params().b);
+  const tree = RedirectMap.deserialize(params().b);
   return <RedirectTester tree={tree} />;
 }
 

@@ -1,15 +1,14 @@
-import defaultBangs from "@/lib/bangs.min.json";
 import { compressToBase64, decompressFromBase64 } from "lz-string";
-// import { parseQuery } from "./redirect";
+import defaultBangs from "@/lib/bangs.min.json";
 
-function treeToDsl(tree: RedirectTree) {
+function treeToDsl(tree: AbstractTree) {
   const lines: string[] = [];
 
   /**
    * Collect all command entries from a tree by walking it recursively.
    * Order: MATCH_NONE first, then subcommands, then MATCH_ALL last.
    */
-  function collectEntries(tree: RedirectTree, prefix: string[] = []) {
+  function collectEntries(tree: AbstractTree, prefix: string[] = []) {
     const entries: { words: string[]; urls: string[] }[] = [];
 
     // 1. Handle MATCH_NONE first (exact match, no trailing text)
@@ -38,13 +37,17 @@ function treeToDsl(tree: RedirectTree) {
 
   for (const { words, urls } of collectEntries(tree)) {
     const left = words.join(" ");
-    lines.push(`${left} => ${JSON.stringify(urls)}`);
+    if (urls.length === 1) {
+      lines.push(`${left} => ${urls[0]}`);
+    } else {
+      lines.push(`${left} => ${JSON.stringify(urls)}`);
+    }
   }
 
   return lines.join("\n");
 }
 function dslToTree(dsl: string) {
-  const tree: RedirectTree = {
+  const tree: AbstractTree = {
     [MATCH_ALL]: [],
   };
 
@@ -59,13 +62,16 @@ function dslToTree(dsl: string) {
     const left = line.slice(0, arrowIndex).trim();
     const right = line.slice(arrowIndex + 2).trim();
 
-    // Parse URLs from JSON array
+    // Parse URLs from ["JSON array"] || "string" || string
     let urls: string[];
     try {
+      // try json parsing for array OR "string"
       urls = JSON.parse(right);
-      if (!Array.isArray(urls)) continue;
+      if (!Array.isArray(urls) && typeof urls !== "string") throw null;
+      if (typeof urls === "string") urls = [urls];
     } catch {
-      continue; // Invalid JSON, skip line
+      // treat it as a simple string
+      urls = [right];
     }
     if (urls.length === 0) continue;
 
@@ -121,9 +127,9 @@ const MATCH_ALL_KEY = "*";
 export const MATCH_NONE = Symbol(MATCH_NONE_KEY);
 export const MATCH_ALL = Symbol(MATCH_ALL_KEY);
 
-export type RedirectTree = {
+export type AbstractTree = {
   [MATCH_NONE]?: string[];
-  [word: string]: RedirectTree;
+  [word: string]: AbstractTree;
   [MATCH_ALL]: string[];
 };
 
@@ -163,10 +169,10 @@ export const EXAMPLE_CONFIG = {
     [MATCH_ALL]: ["steam://open/bigpicture"],
   },
 
-  [MATCH_ALL]: ["https://duckduckgo.com/?q={{{s}}}"],
-} as RedirectTree;
+  [MATCH_ALL]: ["duckduckgo.com/?q={{{s}}}"],
+} as AbstractTree;
 
-function stringify(tree: RedirectTree) {
+function serialize(tree: AbstractTree) {
   let result = FS;
 
   // Get all keys including symbols
@@ -179,15 +185,20 @@ function stringify(tree: RedirectTree) {
   // Stringify string keys first (nested subtrees)
   for (const key of stringKeys) {
     const value = tree[key];
-    const stringifiedValue = stringify(value);
+    const stringifiedValue = serialize(value);
     result += key + US + stringifiedValue + GS;
   }
 
-  // Stringify symbol keys (payloads)
+  // Stringify symbol keys
   for (const sym of symbolKeys) {
     const key = sym === MATCH_ALL ? MATCH_ALL_KEY : MATCH_NONE_KEY;
     const payload = tree[sym]!;
-    const stringifiedPayload = payload.join(RS);
+    let stringifiedPayload: string;
+    if (!Array.isArray(payload)) {
+      stringifiedPayload = payload;
+    } else {
+      stringifiedPayload = payload.join(RS);
+    }
     result += key + US + stringifiedPayload + GS;
   }
 
@@ -202,7 +213,7 @@ function parse(compressed: string) {
     }
     pos++;
 
-    const tree: RedirectTree = {
+    const tree: AbstractTree = {
       [MATCH_ALL]: [], // Required by type, will be populated if present
     };
     let hasMatchAll = false;
@@ -288,7 +299,11 @@ export function insertUrlQuery(url: string, query: string) {
 
 function getUrlsFromRedirectTree(
   query: string,
-  tree: RedirectTree,
+  tree: AbstractTree,
+
+  /**
+   * optional fn for providing defaults before the global wildcard
+   */
   getDefaultValue?: (query: string) => undefined | string[],
 ) {
   const nextWord = query.trimStart().match(/^\s*(\S+)/)?.[0];
@@ -313,14 +328,14 @@ function getUrlsFromRedirectTree(
 }
 
 export default class RedirectMap {
-  constructor(public tree: RedirectTree) {}
+  constructor(public tree: AbstractTree) {}
 
-  static fromString(str: string) {
+  static deserialize(str: string) {
     return new RedirectMap(parse(decompress(str)));
   }
 
-  toString() {
-    return compress(stringify(this.tree));
+  serialize() {
+    return compress(serialize(this.tree));
   }
 
   static fromDSL(args: string): RedirectMap;
@@ -341,9 +356,9 @@ export default class RedirectMap {
   #defaultToDdgBangs(q: string) {
     // cut bang (e.g.: `!gh`) out from query
     const bang = q.match(/!(\S+)/i)?.[1]?.toLowerCase();
-    const query = q.replace(/!\S+\s*/i, "").trim(); // could be ""
-
     if (!bang) return;
+
+    const query = q.replace(/!\S+\s*/i, "").trim();
 
     if (bang in defaultBangs) {
       type Key = keyof typeof defaultBangs;

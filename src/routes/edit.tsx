@@ -30,7 +30,7 @@ function DslEditor(props: { b: string }) {
 
   // Parse initial tree from compressed param
   const initialDsl = createMemo(() => {
-    return RedirectMap.fromString(props.b).toDSL();
+    return RedirectMap.deserialize(props.b).toDSL();
   });
 
   const [dsl, setDsl] = createSignal(initialDsl());
@@ -46,7 +46,7 @@ function DslEditor(props: { b: string }) {
     try {
       const tree = RedirectMap.fromDSL(dsl());
       setError(null);
-      return tree.toString();
+      return tree.serialize();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Invalid syntax");
       return props.b; // Return original on error
