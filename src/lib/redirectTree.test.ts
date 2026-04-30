@@ -21,11 +21,11 @@ const DSL_TEST_CASES = [
     label: "single url",
 
     tree: {
-      [MATCH_ALL]: ["duckduckgo.com/?q={{{s}}}"],
+      [MATCH_ALL]: ["https://duckduckgo.com/?q={{{s}}}"],
     },
 
     dsl: `
-      ... => duckduckgo.com/?q={{{s}}}
+      ... => https://duckduckgo.com/?q={{{s}}}
     `,
   },
 
@@ -35,12 +35,12 @@ const DSL_TEST_CASES = [
     tree: {
       [MATCH_ALL]: [
         "obsidian://quickadd&choice=log&value-search%18query={{{s}}}",
-        "duckduckgo.com/?q={{{s}}}",
+        "https://duckduckgo.com/?q={{{s}}}",
       ],
     },
 
     dsl: `
-      ... => ["obsidian://quickadd&choice=log&value-search%18query={{{s}}}","duckduckgo.com/?q={{{s}}}"]
+      ... => ["obsidian://quickadd&choice=log&value-search%18query={{{s}}}","https://duckduckgo.com/?q={{{s}}}"]
     `,
   },
 
@@ -48,12 +48,12 @@ const DSL_TEST_CASES = [
     label: "should ignore `# comments` in dsl",
 
     tree: {
-      [MATCH_ALL]: ["duckduckgo.com/?q={{{s}}}"],
+      [MATCH_ALL]: ["https://duckduckgo.com/?q={{{s}}}"],
     },
 
     dsl: `
-      # !pp ... => perplexity.ai/search?q={{{s}}}
-      ... => duckduckgo.com/?q={{{s}}}
+      # !pp ... => https://perplexity.ai/search?q={{{s}}}
+      ... => https://duckduckgo.com/?q={{{s}}}
 
       # p.s.: have a nice day
     `,
@@ -64,14 +64,14 @@ const DSL_TEST_CASES = [
 
     tree: {
       "!pp": {
-        [MATCH_ALL]: ["perplexity.ai/search?q={{{s}}}"],
+        [MATCH_ALL]: ["https://perplexity.ai/search?q={{{s}}}"],
       },
-      [MATCH_ALL]: ["duckduckgo.com/?q={{{s}}}"],
+      [MATCH_ALL]: ["https://duckduckgo.com/?q={{{s}}}"],
     },
 
     dsl: `
-      !pp ... => perplexity.ai/search?q={{{s}}}
-      ... => duckduckgo.com/?q={{{s}}}
+      !pp ... => https://perplexity.ai/search?q={{{s}}}
+      ... => https://duckduckgo.com/?q={{{s}}}
     `,
   },
 
@@ -80,17 +80,17 @@ const DSL_TEST_CASES = [
 
     tree: {
       "!pp": {
-        [MATCH_NONE]: ["perplexity.ai"],
-        [MATCH_ALL]: ["perplexity.ai/search?q={{{s}}}"],
+        [MATCH_NONE]: ["https://perplexity.ai"],
+        [MATCH_ALL]: ["https://perplexity.ai/search?q={{{s}}}"],
       },
 
-      [MATCH_ALL]: ["duckduckgo.com/?q={{{s}}}"],
+      [MATCH_ALL]: ["https://duckduckgo.com/?q={{{s}}}"],
     },
 
     dsl: `
-      !pp => perplexity.ai
-      !pp ... => perplexity.ai/search?q={{{s}}}
-      ... => duckduckgo.com/?q={{{s}}}
+      !pp => https://perplexity.ai
+      !pp ... => https://perplexity.ai/search?q={{{s}}}
+      ... => https://duckduckgo.com/?q={{{s}}}
     `,
   },
 
@@ -99,27 +99,27 @@ const DSL_TEST_CASES = [
 
     tree: {
       "!pp": {
-        [MATCH_NONE]: ["perplexity.ai"],
-        [MATCH_ALL]: ["perplexity.ai/search?q={{{s}}}"],
+        [MATCH_NONE]: ["https://perplexity.ai"],
+        [MATCH_ALL]: ["https://perplexity.ai/search?q={{{s}}}"],
       },
 
       "!w": {
-        [MATCH_ALL]: ["duckduckgo.com/?q=weather+{{{s}}}"],
+        [MATCH_ALL]: ["https://duckduckgo.com/?q=weather+{{{s}}}"],
       },
 
       "!steam": {
         [MATCH_ALL]: ["steam://open/bigpicture"],
       },
 
-      [MATCH_ALL]: ["duckduckgo.com/?q={{{s}}}"],
+      [MATCH_ALL]: ["https://duckduckgo.com/?q={{{s}}}"],
     },
 
     dsl: `
-      !pp => perplexity.ai
-      !pp ... => perplexity.ai/search?q={{{s}}}
-      !w ... => duckduckgo.com/?q=weather+{{{s}}}
+      !pp => https://perplexity.ai
+      !pp ... => https://perplexity.ai/search?q={{{s}}}
+      !w ... => https://duckduckgo.com/?q=weather+{{{s}}}
       !steam ... => steam://open/bigpicture
-      ... => duckduckgo.com/?q={{{s}}}
+      ... => https://duckduckgo.com/?q={{{s}}}
     `,
   },
 
@@ -129,16 +129,16 @@ const DSL_TEST_CASES = [
     tree: {
       "!test": {
         [MATCH_ALL]: [
-          "example.com/path?a=1&b=2",
+          "https://example.com/path?a=1&b=2",
           "custom://app?param={{{s}}}&other=value",
         ],
       },
-      [MATCH_ALL]: ["search.com/?q={{{s}}}&lang=en"],
+      [MATCH_ALL]: ["https://search.com/?q={{{s}}}&lang=en"],
     },
 
     dsl: `
-      !test ... => ["example.com/path?a=1&b=2","custom://app?param={{{s}}}&other=value"]
-      ... => search.com/?q={{{s}}}&lang=en
+      !test ... => ["https://example.com/path?a=1&b=2","custom://app?param={{{s}}}&other=value"]
+      ... => https://search.com/?q={{{s}}}&lang=en
     `,
   },
 
@@ -156,14 +156,14 @@ const DSL_TEST_CASES = [
         ],
       },
 
-      [MATCH_ALL]: ["duckduckgo.com/?q={{{s}}}"],
+      [MATCH_ALL]: ["https://duckduckgo.com/?q={{{s}}}"],
     },
 
     dsl: `
       !o => obsidian://daily
       !o search ... => obsidian://search?query={{{s}}}
       !o ... => obsidian://quickadd?daily=true&choice=journal&value-journal%18entry={{{s}}}
-      ... => duckduckgo.com/?q={{{s}}}
+      ... => https://duckduckgo.com/?q={{{s}}}
     `,
   },
 
@@ -172,12 +172,12 @@ const DSL_TEST_CASES = [
 
     tree: {
       "!pp": {
-        [MATCH_NONE]: ["perplexity.ai"],
-        [MATCH_ALL]: ["perplexity.ai/search?q={{{s}}}"],
+        [MATCH_NONE]: ["https://perplexity.ai"],
+        [MATCH_ALL]: ["https://perplexity.ai/search?q={{{s}}}"],
       },
 
       "!w": {
-        [MATCH_ALL]: ["duckduckgo.com/?q=weather+{{{s}}}"],
+        [MATCH_ALL]: ["https://duckduckgo.com/?q=weather+{{{s}}}"],
       },
 
       "!o": {
@@ -209,13 +209,13 @@ const DSL_TEST_CASES = [
         ],
       },
 
-      [MATCH_ALL]: ["duckduckgo.com/?q={{{s}}}"],
+      [MATCH_ALL]: ["https://duckduckgo.com/?q={{{s}}}"],
     },
 
     dsl: `
-      !pp => perplexity.ai
-      !pp ... => perplexity.ai/search?q={{{s}}}
-      !w ... => duckduckgo.com/?q=weather+{{{s}}}
+      !pp => https://perplexity.ai
+      !pp ... => https://perplexity.ai/search?q={{{s}}}
+      !w ... => https://duckduckgo.com/?q=weather+{{{s}}}
       !o => obsidian://daily
       !o search ... => obsidian://search?query={{{s}}}
       !o ... => obsidian://quickadd?daily=true&choice=journal&value-journal%18entry={{{s}}}
@@ -223,7 +223,7 @@ const DSL_TEST_CASES = [
       !todo x ... => obsidian://quickadd?daily=true&choice=completed-todo&value-to%18do%20text={{{s}}}
       !todo ... => obsidian://quickadd?daily=true&choice=todo&value-to%18do%20text={{{s}}}
       !steam ... => ["obsidian://quickadd?choice=gaming%20log","steam://open/bigpicture"]
-      ... => duckduckgo.com/?q={{{s}}}
+      ... => https://duckduckgo.com/?q={{{s}}}
     `,
   },
 ] as { label: string; tree: AbstractTree; dsl: string }[];

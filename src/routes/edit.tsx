@@ -13,16 +13,16 @@ function IndexComponent() {
 
 // const DEFAULT_DSL = `
 // # Default fallback (when no command matches)
-// ... => ["duckduckgo.com/?q={{{s}}}"]
+// ... => ["https://duckduckgo.com/?q={{{s}}}"]
 
 // # Commands use "..." to capture remaining text
-// !gh ... => ["github.com/search?q={{{s}}}"]
-// !gh repo ... => ["github.com/{{{s}}}"]
+// !gh ... => ["https://github.com/search?q={{{s}}}"]
+// !gh repo ... => ["https://github.com/{{{s}}}"]
 
-// !yt ... => ["youtube.com/results?search_query={{{s}}}"]
+// !yt ... => ["https://youtube.com/results?search_query={{{s}}}"]
 
 // # Without "..." means exact match (no trailing text)
-// !yt => ["youtube.com"]
+// !yt => ["https://youtube.com"]
 // `.trim();
 
 function DslEditor(props: { b: string }) {

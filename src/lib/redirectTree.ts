@@ -135,12 +135,12 @@ export type AbstractTree = {
 
 export const EXAMPLE_CONFIG = {
   "!pp": {
-    [MATCH_NONE]: ["perplexity.ai"],
-    [MATCH_ALL]: ["perplexity.ai/search?q={{{s}}}"],
+    [MATCH_NONE]: ["https://perplexity.ai"],
+    [MATCH_ALL]: ["https://perplexity.ai/search?q={{{s}}}"],
   },
 
   "!w": {
-    [MATCH_ALL]: ["duckduckgo.com/?q=weather+{{{s}}}"],
+    [MATCH_ALL]: ["https://duckduckgo.com/?q=weather+{{{s}}}"],
   },
 
   "!o": {
@@ -169,7 +169,7 @@ export const EXAMPLE_CONFIG = {
     [MATCH_ALL]: ["steam://open/bigpicture"],
   },
 
-  [MATCH_ALL]: ["duckduckgo.com/?q={{{s}}}"],
+  [MATCH_ALL]: ["https://duckduckgo.com/?q={{{s}}}"],
 } as AbstractTree;
 
 function serialize(tree: AbstractTree) {
@@ -280,11 +280,6 @@ function parse(compressed: string) {
   return parseNode(compressed, 0).tree;
 }
 
-function defaultToHttps(uri: string) {
-  if (uri.match(/^[a-zA-Z]+:\/\//)) return uri;
-  return "https://" + uri;
-}
-
 export function insertUrlQuery(url: string, query: string) {
   // if the query is empty (after cutting out the bang `!gh`) -
   // use `https://github.com` instead of `https://github.com/search?q=
@@ -309,7 +304,7 @@ function getUrlsFromRedirectTree(
   const nextWord = query.trimStart().match(/^\s*(\S+)/)?.[0];
 
   if (!nextWord && tree[MATCH_NONE]) {
-    return tree[MATCH_NONE].map(defaultToHttps);
+    return tree[MATCH_NONE];
   }
 
   if (nextWord && tree[nextWord]) {
@@ -321,9 +316,7 @@ function getUrlsFromRedirectTree(
 
   return (
     getDefaultValue?.(query) ??
-    tree[MATCH_ALL].map((url) =>
-      insertUrlQuery(defaultToHttps(url), query.trimStart()),
-    )
+    tree[MATCH_ALL].map((url) => insertUrlQuery(url, query.trimStart()))
   );
 }
 
@@ -362,7 +355,7 @@ export default class RedirectMap {
 
     if (bang in defaultBangs) {
       type Key = keyof typeof defaultBangs;
-      const url = defaultToHttps(defaultBangs[bang as Key]);
+      const url = defaultBangs[bang as Key];
 
       return [insertUrlQuery(url, query)];
     }
