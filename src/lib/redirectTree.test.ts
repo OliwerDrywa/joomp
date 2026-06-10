@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import RedirectMap, {
   type AbstractTree,
+  type CaptureGroup,
+  type CaptureEntry,
   MATCH_ALL,
   MATCH_NONE,
 } from "./redirectTree";
@@ -384,6 +386,284 @@ describe("Redirects > redirect()", () => {
         expect(redirectedTo).toBeUndefined();
         expect(newTabs).toEqual(output);
       }
+    });
+  }
+});
+
+// ============================================================
+// Multi-Capture Param Tests
+// ============================================================
+
+const MULTI_CAPTURE_DSL_CASES = [
+  {
+    label: "two captures with delimiter",
+
+    dsl: `
+      !query place ... name ... => https://querysite.com/?name={{{1}}}&place={{{0}}}
+      ... => https://duckduckgo.com/?q={{{s}}}
+    `,
+
+    tree: {
+      "!query": {
+        place: {
+          [MATCH_ALL]: {
+            delimiters: [["name"]],
+            urls: ["https://querysite.com/?name={{{1}}}&place={{{0}}}"],
+          } satisfies CaptureEntry,
+        },
+        [MATCH_ALL]: [],
+      },
+      [MATCH_ALL]: ["https://duckduckgo.com/?q={{{s}}}"],
+    },
+  },
+
+  {
+    label: "three captures with two delimiters",
+
+    dsl: `
+      !flight from ... to ... on ... => https://flights.com/?from={{{0}}}&to={{{1}}}&date={{{2}}}
+    `,
+
+    tree: {
+      "!flight": {
+        from: {
+          [MATCH_ALL]: {
+            delimiters: [["to"], ["on"]],
+            urls: [
+              "https://flights.com/?from={{{0}}}&to={{{1}}}&date={{{2}}}",
+            ],
+          } satisfies CaptureEntry,
+        },
+        [MATCH_ALL]: [],
+      },
+      [MATCH_ALL]: [],
+    },
+  },
+
+  {
+    label: "multi-word delimiter",
+
+    dsl: `
+      !search in ... for ... => https://example.com/search?scope={{{0}}}&q={{{1}}}
+    `,
+
+    tree: {
+      "!search": {
+        in: {
+          [MATCH_ALL]: {
+            delimiters: [["for"]],
+            urls: ["https://example.com/search?scope={{{0}}}&q={{{1}}}"],
+          } satisfies CaptureEntry,
+        },
+        [MATCH_ALL]: [],
+      },
+      [MATCH_ALL]: [],
+    },
+  },
+
+  {
+    label: "same command with alternate capture delimiters",
+
+    dsl: `
+      !w ... 0 ... => https://duckduckgo.com/?q=weather+{{{0}}}
+      !w ... 1 ... => https://duckduckgo.com/?q=weather+{{{1}}}
+    `,
+
+    tree: {
+      "!w": {
+        [MATCH_ALL]: [
+          {
+            delimiters: [["0"]],
+            urls: ["https://duckduckgo.com/?q=weather+{{{0}}}"],
+          },
+          {
+            delimiters: [["1"]],
+            urls: ["https://duckduckgo.com/?q=weather+{{{1}}}"],
+          },
+        ] satisfies CaptureEntry[],
+      },
+      [MATCH_ALL]: [],
+    },
+  },
+
+  {
+    label: "plain wildcard and capture alternative on same prefix",
+
+    dsl: `
+      !q vehicle phvl ... => https://duckduckgo.com/?q=phvl+query+{{{s}}}
+      !q vehicle phvl ... council ... => https://duckduckgo.com/?q=phvl+query+{{{0}}}+with+council+{{{1}}}
+      !q vehicle council ... phvl ... => https://duckduckgo.com/?q=phvl+query+{{{1}}}+with+council+{{{0}}}
+    `,
+
+    tree: {
+      "!q": {
+        vehicle: {
+          phvl: {
+            [MATCH_ALL]: {
+              urls: ["https://duckduckgo.com/?q=phvl+query+{{{s}}}"],
+              captures: [
+                {
+                  delimiters: [["council"]],
+                  urls: [
+                    "https://duckduckgo.com/?q=phvl+query+{{{0}}}+with+council+{{{1}}}",
+                  ],
+                },
+              ],
+            } satisfies CaptureGroup,
+          },
+          council: {
+            [MATCH_ALL]: {
+              delimiters: [["phvl"]],
+              urls: [
+                "https://duckduckgo.com/?q=phvl+query+{{{1}}}+with+council+{{{0}}}",
+              ],
+            } satisfies CaptureEntry,
+          },
+          [MATCH_ALL]: [],
+        },
+        [MATCH_ALL]: [],
+      },
+      [MATCH_ALL]: [],
+    },
+  },
+] as { label: string; tree: AbstractTree; dsl: string }[];
+
+describe("Multi-Capture > DSL roundtrip", () => {
+  for (const { label, tree } of MULTI_CAPTURE_DSL_CASES) {
+    const dsl = new RedirectMap(tree).toDSL();
+
+    test(label, () => {
+      const parsed = RedirectMap.fromDSL(dsl).tree;
+      expect(parsed).toEqual(tree);
+    });
+  }
+});
+
+describe("Multi-Capture > RedirectMap.fromDSL()", () => {
+  for (const { label, tree, dsl } of MULTI_CAPTURE_DSL_CASES) {
+    test(label, () => {
+      expect(RedirectMap.fromDSL(dsl).tree).toEqual(tree);
+    });
+  }
+});
+
+describe("Multi-Capture > Serialization roundtrip", () => {
+  for (const { label, tree } of MULTI_CAPTURE_DSL_CASES) {
+    test(label, () => {
+      const str = new RedirectMap(tree).serialize();
+      expect(RedirectMap.deserialize(str).tree).toEqual(tree);
+    });
+  }
+});
+
+const MULTI_CAPTURE_NAVIGATION_CASES = [
+  {
+    label: "two captures: place and name",
+    dsl: `
+      !query place ... name ... => https://querysite.com/?name={{{1}}}&place={{{0}}}
+      ... => https://duckduckgo.com/?q={{{s}}}
+    `,
+    input: "!query place tokyo name john",
+    output: ["https://querysite.com/?name=john&place=tokyo"],
+  },
+  {
+    label: "two captures: multi-word values",
+    dsl: `
+      !query place ... name ... => https://querysite.com/?name={{{1}}}&place={{{0}}}
+      ... => https://duckduckgo.com/?q={{{s}}}
+    `,
+    input: "!query place new york city name john doe",
+    output: ["https://querysite.com/?name=john%20doe&place=new%20york%20city"],
+  },
+  {
+    label: "three captures: flight search",
+    dsl: `
+      !flight from ... to ... on ... => https://flights.com/?from={{{0}}}&to={{{1}}}&date={{{2}}}
+      ... => https://duckduckgo.com/?q={{{s}}}
+    `,
+    input: "!flight from new york to los angeles on 2025-06-15",
+    output: [
+      "https://flights.com/?from=new%20york&to=los%20angeles&date=2025-06-15",
+    ],
+  },
+  {
+    label: "{{{s}}} alias for {{{0}}}",
+    dsl: `
+      !query place ... name ... => https://querysite.com/?name={{{s}}}&place={{{1}}}
+      ... => https://duckduckgo.com/?q={{{s}}}
+    `,
+    input: "!query place tokyo name john",
+    output: ["https://querysite.com/?name=tokyo&place=john"],
+  },
+  {
+    label: "fallback to global wildcard",
+    dsl: `
+      !query place ... name ... => https://querysite.com/?name={{{1}}}&place={{{0}}}
+      ... => https://duckduckgo.com/?q={{{s}}}
+    `,
+    input: "how does this work",
+    output: ["https://duckduckgo.com/?q=how%20does%20this%20work"],
+  },
+  {
+    label: "same command uses first capture alternative",
+    dsl: `
+      !w ... 0 ... => https://duckduckgo.com/?q=weather+{{{0}}}
+      !w ... 1 ... => https://duckduckgo.com/?q=weather+{{{1}}}
+    `,
+    input: "!w madeira 0 porto",
+    output: ["https://duckduckgo.com/?q=weather+madeira"],
+  },
+  {
+    label: "same command uses second capture alternative",
+    dsl: `
+      !w ... 0 ... => https://duckduckgo.com/?q=weather+{{{0}}}
+      !w ... 1 ... => https://duckduckgo.com/?q=weather+{{{1}}}
+    `,
+    input: "!w madeira 1 porto",
+    output: ["https://duckduckgo.com/?q=weather+porto"],
+  },
+  {
+    label: "plain wildcard survives capture alternative",
+    dsl: `
+      !q vehicle phvl ... => https://duckduckgo.com/?q=phvl+query+{{{s}}}
+      !q vehicle phvl ... council ... => https://duckduckgo.com/?q=phvl+query+{{{0}}}+with+council+{{{1}}}
+      !q vehicle council ... phvl ... => https://duckduckgo.com/?q=phvl+query+{{{1}}}+with+council+{{{0}}}
+    `,
+    input: "!q vehicle phvl honda civic",
+    output: ["https://duckduckgo.com/?q=phvl+query+honda%20civic"],
+  },
+  {
+    label: "capture alternative overrides plain wildcard",
+    dsl: `
+      !q vehicle phvl ... => https://duckduckgo.com/?q=phvl+query+{{{s}}}
+      !q vehicle phvl ... council ... => https://duckduckgo.com/?q=phvl+query+{{{0}}}+with+council+{{{1}}}
+      !q vehicle council ... phvl ... => https://duckduckgo.com/?q=phvl+query+{{{1}}}+with+council+{{{0}}}
+    `,
+    input: "!q vehicle phvl honda civic council bristol",
+    output: [
+      "https://duckduckgo.com/?q=phvl+query+honda%20civic+with+council+bristol",
+    ],
+  },
+  {
+    label: "reversed capture alternative still works",
+    dsl: `
+      !q vehicle phvl ... => https://duckduckgo.com/?q=phvl+query+{{{s}}}
+      !q vehicle phvl ... council ... => https://duckduckgo.com/?q=phvl+query+{{{0}}}+with+council+{{{1}}}
+      !q vehicle council ... phvl ... => https://duckduckgo.com/?q=phvl+query+{{{1}}}+with+council+{{{0}}}
+    `,
+    input: "!q vehicle council bristol phvl honda civic",
+    output: [
+      "https://duckduckgo.com/?q=phvl+query+honda%20civic+with+council+bristol",
+    ],
+  },
+];
+
+describe("Multi-Capture > Navigation", () => {
+  for (const { label, dsl, input, output } of MULTI_CAPTURE_NAVIGATION_CASES) {
+    test(label, () => {
+      const map = RedirectMap.fromDSL(dsl);
+      const result = map.getRedirectUrls(input);
+      expect(result).toEqual(output);
     });
   }
 });

@@ -28,19 +28,10 @@ function openInNewTab(url: string) {
   // close custom protocol links like obsidian://
   // #todo figure out what happens if custom protocol is in browser
   if (!url.startsWith("http")) w?.close();
-
-  // // close tab by onvisibilitychange
-  // if (!finalUrl.startsWith("http")) {
-  //   document.onvisibilitychange = () => {
-  //     if (document.visibilityState === "visible") return;
-  //     window.close();
-  //   };
-  // }
 }
 
 function closeSelf() {
   // a hacky way to take ownership of current tab
   // #todo figure out the browser support
   window.open("", "_self")?.close();
-  // window.close();
 }

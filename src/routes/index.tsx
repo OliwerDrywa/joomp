@@ -71,9 +71,9 @@ function IndexComponent() {
           <li>
             <p class="inline text-justify">
               There is a limit on characters in the URL. From the testing I've
-              done, the limit is about ~500 different redirects (when compressed
-              with Pako), but your mileage may vary depending on the browser you
-              use.
+              done, the limit is about ~500 different redirects (when
+              compressed), but your mileage may vary depending on the browser
+              you use.
             </p>
           </li>
         </ul>

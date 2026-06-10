@@ -3,27 +3,13 @@ import { createEffect, createMemo, createSignal } from "solid-js";
 import RedirectMap from "@/lib/redirectTree";
 
 export const Route = createFileRoute("/edit")({
-  component: IndexComponent,
+  component: EditPage,
 });
 
-function IndexComponent() {
+function EditPage() {
   const params = Route.useSearch();
   return <DslEditor b={params().b} />;
 }
-
-// const DEFAULT_DSL = `
-// # Default fallback (when no command matches)
-// ... => ["https://duckduckgo.com/?q={{{s}}}"]
-
-// # Commands use "..." to capture remaining text
-// !gh ... => ["https://github.com/search?q={{{s}}}"]
-// !gh repo ... => ["https://github.com/{{{s}}}"]
-
-// !yt ... => ["https://youtube.com/results?search_query={{{s}}}"]
-
-// # Without "..." means exact match (no trailing text)
-// !yt => ["https://youtube.com"]
-// `.trim();
 
 function DslEditor(props: { b: string }) {
   const navigate = Route.useNavigate();
