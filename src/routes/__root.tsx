@@ -20,6 +20,7 @@ const DEFAULT_REDIRECT_MAP = RedirectMap.fromDSL`
   !todo x ... => obsidian://quickadd?daily=true&choice=completed-todo&value-to%18do%20text={{{s}}}
   !todo ... => obsidian://quickadd?daily=true&choice=todo&value-to%18do%20text={{{s}}}
   !steam ... => steam://open/bigpicture
+  !joomp => /edit
   ... => duckduckgo.com/?q={{{s}}}
 `.serialize();
 

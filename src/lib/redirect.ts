@@ -12,6 +12,12 @@ export default function redirect() {
   const tree = RedirectMap.deserialize(b);
   const urls = tree.getRedirectUrls(q);
 
+  // !joomp -> open the editor for the current config
+  if (urls.length === 1 && urls[0] === "/edit") {
+    window.location.replace(`/edit?b=${encodeURIComponent(b)}`);
+    return;
+  }
+
   if (urls.length === 1) {
     // single url -> redirect to it
     window.document.title = `➜ ${urls[0]}`;
