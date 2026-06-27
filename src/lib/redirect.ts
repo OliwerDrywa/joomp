@@ -10,7 +10,7 @@ export default function redirect() {
   if (!b) throw new Error("missing 'b' parameter");
 
   const tree = RedirectMap.deserialize(b);
-  const urls = tree.getRedirectUrls(decodeURI(q));
+  const urls = tree.getRedirectUrls(q);
 
   if (urls.length === 1) {
     // single url -> redirect to it
