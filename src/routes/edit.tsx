@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/solid-router";
-import { createEffect, createMemo, createSignal } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import RedirectMap from "@/lib/redirectTree";
 
 export const Route = createFileRoute("/edit")({
@@ -11,8 +11,29 @@ function EditPage() {
   return <DslEditor b={params().b} />;
 }
 
+/**
+ * Expose THIS user's config to Chrome's search-engine discovery by pointing
+ * <link rel="search"> at the dynamic descriptor carrying their `b`. Chrome
+ * reads this from the live DOM, so a per-user link here is enough — no
+ * per-user index.html needed.
+ */
+function useSearchLink(b: () => string) {
+  const link = document.createElement("link");
+  link.rel = "search";
+  link.type = "application/opensearchdescription+xml";
+  link.title = "joomp";
+  document.head.appendChild(link);
+  createEffect(() => {
+    link.href = `/api/opensearch?b=${encodeURIComponent(b())}`;
+  });
+  onCleanup(() => link.remove());
+}
+
 function DslEditor(props: { b: string }) {
   const navigate = Route.useNavigate();
+
+  // Point search-engine discovery at this user's saved config.
+  useSearchLink(() => props.b);
 
   // Parse initial tree from compressed param
   const initialDsl = createMemo(() => {
