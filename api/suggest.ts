@@ -140,10 +140,19 @@ async function duckDuckGoSuggestions(query: string, limit: number): Promise<stri
 
     const payload: unknown = await response.json();
     if (!Array.isArray(payload)) return [];
-    return payload
-      .flatMap((item) =>
-        typeof item === "object" && item !== null && typeof item.phrase === "string" ? [item.phrase] : [],
-      )
+
+    // `type=list` returns OpenSearch's [query, suggestions[]] tuple. The
+    // default endpoint returns [{ phrase }], so accept it too if DDG changes
+    // the response mode or its content negotiation.
+    const phrases = Array.isArray(payload[1])
+      ? payload[1]
+      : payload.flatMap((item) =>
+          typeof item === "object" && item !== null && typeof item.phrase === "string"
+            ? [item.phrase]
+            : [],
+        );
+    return phrases
+      .filter((phrase): phrase is string => typeof phrase === "string")
       .filter((phrase) => phrase.length > 0 && phrase.length <= MAX_QUERY_LENGTH)
       .slice(0, limit);
   } catch {

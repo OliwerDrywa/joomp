@@ -100,12 +100,12 @@ test("uses default bang completions only after URL-rule completions", () => {
   expect(suggest("!g", config, 2)).toEqual(["!github ", "!g "]);
 });
 
-test("fills remaining suggestions from DuckDuckGo after local sources", async () => {
+test("fills remaining suggestions from DuckDuckGo's OpenSearch tuple after local sources", async () => {
   const originalFetch = globalThis.fetch;
   const requests: string[] = [];
   globalThis.fetch = (async (input: URL | RequestInfo) => {
     requests.push(String(input));
-    return new Response(JSON.stringify([{ phrase: "rain tomorrow" }, { phrase: "rain radar" }]));
+    return new Response(JSON.stringify(["rain", ["rainmeter", "rainbow"]]));
   }) as unknown as typeof fetch;
 
   try {
@@ -113,8 +113,24 @@ test("fills remaining suggestions from DuckDuckGo after local sources", async ()
     const res = nodeResponse();
     await handler(nodeRequest("/api/suggest?q=rain"), res);
 
-    expect(JSON.parse(res.body)).toEqual(["rain", ["rain tomorrow", "rain radar"]]);
+    expect(JSON.parse(res.body)).toEqual(["rain", ["rainmeter", "rainbow"]]);
     expect(requests).toEqual(["https://ac.duckduckgo.com/ac/?q=rain&type=list"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("also accepts DuckDuckGo's object response shape", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify([{ phrase: "rain tomorrow" }, { phrase: "rain radar" }]))) as unknown as typeof fetch;
+
+  try {
+    const handler = (await import("./suggest")).default;
+    const res = nodeResponse();
+    await handler(nodeRequest("/api/suggest?q=rain"), res);
+
+    expect(JSON.parse(res.body)).toEqual(["rain", ["rain tomorrow", "rain radar"]]);
   } finally {
     globalThis.fetch = originalFetch;
   }
