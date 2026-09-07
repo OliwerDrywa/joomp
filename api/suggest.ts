@@ -1,92 +1,138 @@
 import RedirectMap from "../src/lib/redirectTree";
 import bangs from "../src/lib/bangs.min.json";
 
+type RequestLike = { headers?: Record<string, string | string[] | undefined>; url?: string };
+type ResponseLike = {
+  end: (body: string) => void;
+  setHeader: (name: string, value: string) => void;
+};
+
+const MAX_QUERY_LENGTH = 512;
+const MAX_CONFIG_LENGTH = 8_192;
 const bangKeys = Object.keys(bangs);
 
-/** The command patterns a config defines, e.g. "!o search ..." (left of =>). */
-function patternsOf(b: string): string[] {
+function patternsOf(b: string): string[][] {
+  if (b.length > MAX_CONFIG_LENGTH) return [];
   const seen = new Set<string>();
   for (const line of RedirectMap.deserialize(b).toDSL().split("\n")) {
     const left = line.split(" => ")[0].trim();
-    // Skip the bare global wildcard "..." (matches everything, suggests nothing)
     if (left && left !== "...") seen.add(left);
   }
-  return [...seen];
+  return [...seen].map((pattern) => pattern.split(/\s+/));
+}
+
+function isPrefix(word: string, literal: string, isFinal: boolean) {
+  return isFinal ? literal.startsWith(word) : literal === word;
 }
 
 /**
- * Is `typed` a prefix of `pattern` word-by-word? A pattern word of "..." is a
- * capture slot that swallows the rest of the typed input (and onward). The
- * final typed word matches by prefix (still being typed); earlier words must
- * match in full so "!o se" doesn't wrongly match "!o search" after the space.
+ * Returns a selectable query that retains the typed capture values and adds the
+ * next literal portion of a DSL rule. Captures consume words only until the
+ * next literal delimiter can be recognized, so traversal continues after `...`.
  */
-function matchesPrefix(typed: string[], pattern: string[]): boolean {
-  for (let i = 0; i < typed.length; i++) {
-    const p = pattern[i];
-    if (p === undefined) return false; // typed more words than pattern has
-    if (p === "...") return true; // capture slot: rest is free text
-    const last = i === typed.length - 1;
-    if (last ? !p.startsWith(typed[i]) : p !== typed[i]) return false;
+function completePattern(query: string, pattern: string[]): string | undefined {
+  const hasTrailingSpace = /\s$/.test(query);
+  const typed = query.trim().split(/\s+/).filter(Boolean);
+  if (!typed.length) return;
+
+  const output: string[] = [];
+  let typedIndex = 0;
+  let patternIndex = 0;
+  while (patternIndex < pattern.length) {
+    const token = pattern[patternIndex];
+    if (token !== "...") {
+      const word = typed[typedIndex];
+      const nextCapture = pattern.indexOf("...", patternIndex);
+      const literals = pattern.slice(patternIndex, nextCapture === -1 ? pattern.length : nextCapture);
+      if (!word) return `${output.concat(literals).join(" ")} `;
+      const isFinal = typedIndex === typed.length - 1 && !hasTrailingSpace;
+      if (!isPrefix(word, token, isFinal)) return;
+      output.push(isFinal ? token : word);
+      typedIndex++;
+      patternIndex++;
+      continue;
+    }
+
+    const nextCapture = pattern.indexOf("...", patternIndex + 1);
+    const delimiter = pattern.slice(patternIndex + 1, nextCapture === -1 ? pattern.length : nextCapture);
+    if (!delimiter.length) return `${output.concat(typed.slice(typedIndex)).join(" ")} `;
+
+    let matchedDelimiter = false;
+    for (let start = typedIndex; start < typed.length; start++) {
+      const matchingWords = Math.min(typed.length - start, delimiter.length);
+      const isPartialDelimiter = delimiter.slice(0, matchingWords).every((literal, offset) =>
+        isPrefix(
+          typed[start + offset],
+          literal,
+          start + offset === typed.length - 1 && !hasTrailingSpace,
+        ),
+      );
+      if (!isPartialDelimiter) continue;
+      output.push(...typed.slice(typedIndex, start));
+      if (matchingWords < delimiter.length || (!hasTrailingSpace && typed.length - start === delimiter.length)) {
+        output.push(...delimiter);
+        return `${output.join(" ")} `;
+      }
+      output.push(...delimiter);
+      typedIndex = start + delimiter.length;
+      patternIndex += delimiter.length + 1;
+      matchedDelimiter = true;
+      break;
+    }
+    if (!matchedDelimiter) return `${output.concat(typed.slice(typedIndex), delimiter).join(" ")} `;
   }
-  return true;
+
+  return `${output.concat(typed.slice(typedIndex)).join(" ")} `;
 }
 
-/**
- * Config-aware suggestions. Given the omnibox query and the user's compressed
- * config `b`, suggest:
- *  1. configured command patterns whose words match what's typed so far
- *     (covers multi-word + multi-capture patterns like "!o search ..."), and
- *  2. bang completions for a trailing `!token` (the DDG bang fallback set).
- *
- * Stateless: `b` is decompressed per request, nothing is stored.
- */
 export function suggest(query: string, b?: string, limit = 8): string[] {
+  const safeQuery = query.slice(0, MAX_QUERY_LENGTH);
   const out: string[] = [];
   const seen = new Set<string>();
-  const add = (s: string) => {
-    if (!seen.has(s) && out.length < limit) (seen.add(s), out.push(s));
+  const add = (value: string) => {
+    if (!seen.has(value) && out.length < limit) {
+      seen.add(value);
+      out.push(value);
+    }
   };
 
-  const typedWords = query.trim() ? query.trim().split(/\s+/) : [];
-
-  // 1. Config patterns whose words the typed query is a prefix of.
   if (b) {
-    let patterns: string[] = [];
     try {
-      patterns = patternsOf(b);
+      for (const pattern of patternsOf(b)) {
+        const completion = completePattern(safeQuery, pattern);
+        if (completion) add(completion);
+      }
     } catch {
-      /* bad/garbled b -> fall through to bangs */
-    }
-    for (const pattern of patterns) {
-      if (matchesPrefix(typedWords, pattern.split(/\s+/)))
-        add(pattern.replace(/\.\.\./g, "…") + " ");
+      // An invalid personalized config must not prevent standard bang completions.
     }
   }
 
-  // 2. Bang completion for a trailing !token.
-  const m = query.match(/!([a-z0-9]+)$/i);
-  if (m) {
-    const frag = m[1].toLowerCase();
-    const head = query.slice(0, m.index);
-    for (const k of bangKeys
-      .filter((k) => k.startsWith(frag))
-      .sort((a, c) => a.length - c.length || (a < c ? -1 : 1)))
-      add(`${head}!${k} `);
+  const bang = safeQuery.match(/!([a-z0-9]+)$/i);
+  if (bang) {
+    const fragment = bang[1].toLowerCase();
+    const head = safeQuery.slice(0, bang.index);
+    for (const key of bangKeys
+      .filter((key) => key.startsWith(fragment))
+      .sort((left, right) => left.length - right.length || left.localeCompare(right))) {
+      add(`${head}!${key} `);
+    }
   }
 
-  return out.slice(0, limit);
+  return out;
 }
 
-// OpenSearch Suggestions format: [query, [completions]]
-export default function handler(req: Request) {
-  const url = new URL(req.url);
-  const q = url.searchParams.get("q") ?? "";
-  const b = url.searchParams.get("b") ?? undefined;
-  const body = JSON.stringify([q, suggest(q, b)]);
-  return new Response(body, {
-    headers: {
-      "content-type": "application/x-suggestions+json; charset=utf-8",
-      "cache-control": "public, max-age=3600",
-    },
-  });
+function requestUrl(req: RequestLike) {
+  const protocol = String(req.headers?.["x-forwarded-proto"] ?? "https").split(",")[0];
+  const host = String(req.headers?.host ?? "localhost");
+  return new URL(req.url ?? "/api/suggest", `${protocol}://${host}`);
+}
+
+export default function handler(req: RequestLike, res: ResponseLike) {
+  const url = requestUrl(req);
+  const query = (url.searchParams.get("q") ?? "").slice(0, MAX_QUERY_LENGTH);
+  const config = url.searchParams.get("b") ?? undefined;
+  res.setHeader("content-type", "application/x-suggestions+json; charset=utf-8");
+  res.setHeader("cache-control", "private, no-store");
+  res.setHeader("x-content-type-options", "nosniff");
+  res.end(JSON.stringify([query, suggest(query, config)]));
 }
