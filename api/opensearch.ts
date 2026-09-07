@@ -1,5 +1,5 @@
-import RedirectMap from "../src/lib/redirectTree";
-import { DEFAULT_B } from "../src/lib/defaultConfig";
+import RedirectMap from "../src/lib/redirectTree.js";
+import { DEFAULT_B } from "../src/lib/defaultConfig.js";
 
 type RequestLike = { headers?: Record<string, string | string[] | undefined>; url?: string };
 type ResponseLike = {
