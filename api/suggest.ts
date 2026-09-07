@@ -9,12 +9,13 @@ type ResponseLike = {
 
 const MAX_QUERY_LENGTH = 512;
 const MAX_CONFIG_LENGTH = 8_192;
+const MAX_DECODED_CONFIG_LENGTH = 64_000;
 const bangKeys = Object.keys(bangs);
 
 function patternsOf(b: string): string[][] {
   if (b.length > MAX_CONFIG_LENGTH) return [];
   const seen = new Set<string>();
-  for (const line of RedirectMap.deserialize(b).toDSL().split("\n")) {
+  for (const line of RedirectMap.deserialize(b, MAX_DECODED_CONFIG_LENGTH).toDSL().split("\n")) {
     const left = line.split(" => ")[0].trim();
     if (left && left !== "...") seen.add(left);
   }
@@ -79,7 +80,10 @@ function completePattern(query: string, pattern: string[]): string | undefined {
       matchedDelimiter = true;
       break;
     }
-    if (!matchedDelimiter) return `${output.concat(typed.slice(typedIndex), delimiter).join(" ")} `;
+    if (!matchedDelimiter) {
+      if (typedIndex === typed.length) return;
+      return `${output.concat(typed.slice(typedIndex), delimiter).join(" ")} `;
+    }
   }
 
   return `${output.concat(typed.slice(typedIndex)).join(" ")} `;

@@ -451,8 +451,12 @@ function getUrlsFromRedirectTree(
 export default class RedirectMap {
   constructor(public tree: AbstractTree) {}
 
-  static deserialize(str: string) {
-    return new RedirectMap(parse(decompress(str)));
+  static deserialize(str: string, maxDecodedLength?: number) {
+    const decoded = decompress(str);
+    if (maxDecodedLength !== undefined && decoded.length > maxDecodedLength) {
+      throw new Error("Compressed config exceeds the decoded size limit");
+    }
+    return new RedirectMap(parse(decoded));
   }
 
   serialize() {

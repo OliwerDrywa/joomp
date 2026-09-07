@@ -25,6 +25,11 @@ test("completes each multi-capture delimiter while preserving typed captures", (
   );
 });
 
+test("does not offer a delimiter before its required capture has text", () => {
+  expect(suggest("!flight from", b)).not.toContain("!flight from to ");
+  expect(suggest("!flight from ", b)).not.toContain("!flight from to ");
+});
+
 test("never suggests the bare global wildcard", () => {
   expect(suggest("any", b).some((s) => s.startsWith("…"))).toBe(false);
 });
@@ -44,6 +49,12 @@ test("deduplicates suggestions and enforces the requested limit", () => {
     !same ... => two.example?q={{{s}}}
   `).serialize();
   expect(suggest("!s", duplicateB, 1)).toEqual(["!same "]);
+});
+
+test("rejects compressed configs that expand beyond the decoded size limit", () => {
+  const oversizedB = RedirectMap.fromDSL(`!large ... => https://example.com/?q=${"x".repeat(70_000)}`).serialize();
+  expect(oversizedB.length).toBeLessThan(8_192);
+  expect(suggest("!gith", oversizedB)).toContain("!github ");
 });
 
 test("caps oversized input without attempting to deserialize its config", () => {
