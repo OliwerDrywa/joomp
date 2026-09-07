@@ -22,3 +22,12 @@ test("serverless JSON imports specify the Node ESM JSON import attribute", async
     expect(source).toMatch(/from\s+["'][^"']+\.json["']\s+with\s+\{\s*type:\s*["']json["']\s*\}/);
   }
 });
+
+test("serverless code imports the CommonJS lz-string package through its default export", async () => {
+  const source = await Bun.file(
+    new URL("../src/lib/redirectTree.ts", import.meta.url),
+  ).text();
+
+  expect(source).toMatch(/import\s+LZString\s+from\s+["']lz-string["']/);
+  expect(source).not.toMatch(/import\s+\{[^}]+\}\s+from\s+["']lz-string["']/);
+});
