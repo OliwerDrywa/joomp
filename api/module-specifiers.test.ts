@@ -16,6 +16,15 @@ test("serverless modules use explicit extensions for local runtime imports", asy
   }
 });
 
+test("serverless dependency modules use explicit extensions for local runtime imports", async () => {
+  const source = await Bun.file(new URL("../src/lib/defaultConfig.ts", import.meta.url)).text();
+  const localImports = [...source.matchAll(/from\s+["'](\.\.?\/[^"']+)["']/g)].map(
+    ([, specifier]) => specifier,
+  );
+
+  expect(localImports).toEqual(["./redirectTree.js"]);
+});
+
 test("serverless JSON imports specify the Node ESM JSON import attribute", async () => {
   for (const module of ["suggest.ts", "../src/lib/redirectTree.ts"]) {
     const source = await Bun.file(new URL(`./${module}`, import.meta.url)).text();

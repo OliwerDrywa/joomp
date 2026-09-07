@@ -1,4 +1,4 @@
-import RedirectMap from "./redirectTree";
+import RedirectMap from "./redirectTree.js";
 
 /** The default redirect config, shared by the app and the OpenSearch endpoint. */
 export const DEFAULT_DSL = `
