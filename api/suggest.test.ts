@@ -85,11 +85,54 @@ function nodeResponse() {
 test("node serverless handler returns OpenSearch JSON and defensive headers", async () => {
   const handler = (await import("./suggest")).default;
   const res = nodeResponse();
-  handler(nodeRequest(`/api/suggest?q=!flight%20from%20foo&b=${encodeURIComponent(b)}`), res);
+  await handler(nodeRequest(`/api/suggest?q=!flight%20from%20foo&b=${encodeURIComponent(b)}`), res);
   expect(JSON.parse(res.body)).toEqual([
     "!flight from foo",
     expect.arrayContaining(["!flight from foo to "]),
   ]);
   expect(res.headers.get("content-type")).toContain("application/x-suggestions+json");
   expect(res.headers.get("cache-control")).toContain("private");
+});
+
+test("uses default bang completions only after URL-rule completions", () => {
+  const config = RedirectMap.fromDSL(`!github ... => github.com/search?q={{{s}}}`).serialize();
+
+  expect(suggest("!g", config, 2)).toEqual(["!github ", "!g "]);
+});
+
+test("fills remaining suggestions from DuckDuckGo after local sources", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: string[] = [];
+  globalThis.fetch = (async (input: URL | RequestInfo) => {
+    requests.push(String(input));
+    return new Response(JSON.stringify([{ phrase: "rain tomorrow" }, { phrase: "rain radar" }]));
+  }) as unknown as typeof fetch;
+
+  try {
+    const handler = (await import("./suggest")).default;
+    const res = nodeResponse();
+    await handler(nodeRequest("/api/suggest?q=rain"), res);
+
+    expect(JSON.parse(res.body)).toEqual(["rain", ["rain tomorrow", "rain radar"]]);
+    expect(requests).toEqual(["https://ac.duckduckgo.com/ac/?q=rain&type=list"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("does not request DuckDuckGo for an empty query", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls++;
+    return new Response("[]");
+  }) as unknown as typeof fetch;
+
+  try {
+    const handler = (await import("./suggest")).default;
+    await handler(nodeRequest("/api/suggest?q="), nodeResponse());
+    expect(calls).toBe(0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

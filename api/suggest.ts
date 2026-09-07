@@ -89,6 +89,19 @@ function completePattern(query: string, pattern: string[]): string | undefined {
   return `${output.concat(typed.slice(typedIndex)).join(" ")} `;
 }
 
+function addDefaultBangCompletions(query: string, add: (value: string) => void) {
+  const bang = query.match(/!([a-z0-9]+)$/i);
+  if (!bang) return;
+
+  const fragment = bang[1].toLowerCase();
+  const head = query.slice(0, bang.index);
+  for (const key of bangKeys
+    .filter((key) => key.startsWith(fragment))
+    .sort((left, right) => left.length - right.length || left.localeCompare(right))) {
+    add(`${head}!${key} `);
+  }
+}
+
 export function suggest(query: string, b?: string, limit = 8): string[] {
   const safeQuery = query.slice(0, MAX_QUERY_LENGTH);
   const out: string[] = [];
@@ -111,18 +124,33 @@ export function suggest(query: string, b?: string, limit = 8): string[] {
     }
   }
 
-  const bang = safeQuery.match(/!([a-z0-9]+)$/i);
-  if (bang) {
-    const fragment = bang[1].toLowerCase();
-    const head = safeQuery.slice(0, bang.index);
-    for (const key of bangKeys
-      .filter((key) => key.startsWith(fragment))
-      .sort((left, right) => left.length - right.length || left.localeCompare(right))) {
-      add(`${head}!${key} `);
-    }
-  }
-
+  if (out.length < limit) addDefaultBangCompletions(safeQuery, add);
   return out;
+}
+
+async function duckDuckGoSuggestions(query: string, limit: number): Promise<string[]> {
+  if (!query.trim() || limit < 1) return [];
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 1_000);
+  try {
+    const url = `https://ac.duckduckgo.com/ac/?q=${encodeURIComponent(query)}&type=list`;
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) return [];
+
+    const payload: unknown = await response.json();
+    if (!Array.isArray(payload)) return [];
+    return payload
+      .flatMap((item) =>
+        typeof item === "object" && item !== null && typeof item.phrase === "string" ? [item.phrase] : [],
+      )
+      .filter((phrase) => phrase.length > 0 && phrase.length <= MAX_QUERY_LENGTH)
+      .slice(0, limit);
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function requestUrl(req: RequestLike) {
@@ -131,12 +159,25 @@ function requestUrl(req: RequestLike) {
   return new URL(req.url ?? "/api/suggest", `${protocol}://${host}`);
 }
 
-export default function handler(req: RequestLike, res: ResponseLike) {
+export default async function handler(req: RequestLike, res: ResponseLike) {
   const url = requestUrl(req);
   const query = (url.searchParams.get("q") ?? "").slice(0, MAX_QUERY_LENGTH);
   const config = url.searchParams.get("b") ?? undefined;
+  const completions = suggest(query, config);
+  const seen = new Set(completions);
+
+  if (completions.length < 8) {
+    for (const phrase of await duckDuckGoSuggestions(query, 8 - completions.length)) {
+      if (!seen.has(phrase)) {
+        seen.add(phrase);
+        completions.push(phrase);
+      }
+      if (completions.length === 8) break;
+    }
+  }
+
   res.setHeader("content-type", "application/x-suggestions+json; charset=utf-8");
   res.setHeader("cache-control", "private, no-store");
   res.setHeader("x-content-type-options", "nosniff");
-  res.end(JSON.stringify([query, suggest(query, config)]));
+  res.end(JSON.stringify([query, completions]));
 }
