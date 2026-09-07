@@ -1,5 +1,5 @@
 import { compressToBase64, decompressFromBase64 } from "lz-string";
-import defaultBangs from "./bangs.min.json";
+import defaultBangs from "./bangs.min.json" with { type: "json" };
 
 // DSL control characters (ASCII separators)
 const FS = "\x1C"; // File Separator - Node boundary

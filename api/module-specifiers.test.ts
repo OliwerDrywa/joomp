@@ -15,3 +15,10 @@ test("serverless modules use explicit extensions for local runtime imports", asy
     }
   }
 });
+
+test("serverless JSON imports specify the Node ESM JSON import attribute", async () => {
+  for (const module of ["suggest.ts", "../src/lib/redirectTree.ts"]) {
+    const source = await Bun.file(new URL(`./${module}`, import.meta.url)).text();
+    expect(source).toMatch(/from\s+["'][^"']+\.json["']\s+with\s+\{\s*type:\s*["']json["']\s*\}/);
+  }
+});

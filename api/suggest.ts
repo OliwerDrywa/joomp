@@ -1,5 +1,5 @@
 import RedirectMap from "../src/lib/redirectTree.js";
-import bangs from "../src/lib/bangs.min.json";
+import bangs from "../src/lib/bangs.min.json" with { type: "json" };
 
 type RequestLike = { headers?: Record<string, string | string[] | undefined>; url?: string };
 type ResponseLike = {
