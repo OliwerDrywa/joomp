@@ -1,7 +1,11 @@
 import RedirectMap from "../src/lib/redirectTree.js";
 import { DEFAULT_B } from "../src/lib/defaultConfig.js";
+import { engineSlug, normalizeEngineName } from "../src/lib/engineIdentity.js";
 
-type RequestLike = { headers?: Record<string, string | string[] | undefined>; url?: string };
+type RequestLike = {
+  headers?: Record<string, string | string[] | undefined>;
+  url?: string;
+};
 type ResponseLike = {
   end: (body: string) => void;
   setHeader: (name: string, value: string) => void;
@@ -10,7 +14,12 @@ type ResponseLike = {
 const MAX_CONFIG_LENGTH = 8_192;
 
 function xmlEscape(value: string) {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
 function safeConfig(config: string | null): string {
@@ -23,11 +32,11 @@ function safeConfig(config: string | null): string {
   }
 }
 
-export function descriptor(config: string, origin: string) {
+export function descriptor(config: string, name: string, origin: string) {
   const encodedConfig = encodeURIComponent(config);
   return `<?xml version="1.0" encoding="UTF-8"?>
 <OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
-  <ShortName>joomp</ShortName>
+  <ShortName>${xmlEscape(normalizeEngineName(name))}</ShortName>
   <Description>joomp straight to it</Description>
   <InputEncoding>UTF-8</InputEncoding>
   <Image width="16" height="16" type="image/x-icon">${xmlEscape(origin)}/favicon.ico</Image>
@@ -40,15 +49,31 @@ export function descriptor(config: string, origin: string) {
 }
 
 function requestUrl(req: RequestLike) {
-  const protocol = String(req.headers?.["x-forwarded-proto"] ?? "https").split(",")[0];
+  const protocol = String(req.headers?.["x-forwarded-proto"] ?? "https").split(
+    ",",
+  )[0];
   const host = String(req.headers?.host ?? "localhost");
   return new URL(req.url ?? "/api/opensearch", `${protocol}://${host}`);
 }
 
-export default function handler(req: RequestLike, res: ResponseLike) {
+export default async function handler(req: RequestLike, res: ResponseLike) {
   const url = requestUrl(req);
-  res.setHeader("content-type", "application/opensearchdescription+xml; charset=utf-8");
+  const configParam = url.searchParams.get("b");
+  const config = safeConfig(configParam);
+  const descriptorOrigin =
+    (
+      configParam &&
+      (url.hostname === "joomp.link" || url.hostname.endsWith(".joomp.link"))
+    ) ?
+      `https://${await engineSlug(config)}.joomp.link`
+    : url.origin;
+  res.setHeader(
+    "content-type",
+    "application/opensearchdescription+xml; charset=utf-8",
+  );
   res.setHeader("cache-control", "private, no-store");
   res.setHeader("x-content-type-options", "nosniff");
-  res.end(descriptor(safeConfig(url.searchParams.get("b")), url.origin));
+  res.end(
+    descriptor(config, url.searchParams.get("n") ?? "joomp", descriptorOrigin),
+  );
 }

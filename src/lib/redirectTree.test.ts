@@ -366,7 +366,7 @@ describe("Redirects > redirect()", () => {
 
         location: {
           search: new URLSearchParams({
-            q: encodeURI(input),
+            q: input,
             b: new RedirectMap(NAVIGATION_TREE).serialize(),
           }),
 
@@ -429,9 +429,7 @@ const MULTI_CAPTURE_DSL_CASES = [
         from: {
           [MATCH_ALL]: {
             delimiters: [["to"], ["on"]],
-            urls: [
-              "https://flights.com/?from={{{0}}}&to={{{1}}}&date={{{2}}}",
-            ],
+            urls: ["https://flights.com/?from={{{0}}}&to={{{1}}}&date={{{2}}}"],
           } satisfies CaptureEntry,
         },
         [MATCH_ALL]: [],
