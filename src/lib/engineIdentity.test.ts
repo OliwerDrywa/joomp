@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   buildEngineEditUrl,
+  clampEngineNameInput,
   engineSlug,
   normalizeEngineName,
 } from "./engineIdentity";
@@ -36,10 +37,18 @@ test("keeps local development on the current host", async () => {
   expect(url.origin).toBe("http://localhost:3000");
 });
 
+test("clamps engine-name input and its DOM value to 16 code points", () => {
+  const input = { value: "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀extra" };
+
+  expect(clampEngineNameInput(input)).toBe("😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀");
+  expect(input.value).toBe("😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀");
+});
+
 test("normalizes OpenSearch names to 16 Unicode code points", () => {
   expect(normalizeEngineName("  Work & Docs  ")).toBe("Work & Docs");
   expect(normalizeEngineName("😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀")).toBe(
     "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
   );
   expect(normalizeEngineName("   ")).toBe("joomp");
+  expect(normalizeEngineName("bad\u0000\u0001\u000Bname")).toBe("badname");
 });

@@ -1,6 +1,6 @@
 import RedirectMap from "../src/lib/redirectTree.js";
 import { DEFAULT_B } from "../src/lib/defaultConfig.js";
-import { normalizeEngineName } from "../src/lib/engineIdentity.js";
+import { engineSlug, normalizeEngineName } from "../src/lib/engineIdentity.js";
 
 type RequestLike = {
   headers?: Record<string, string | string[] | undefined>;
@@ -56,8 +56,17 @@ function requestUrl(req: RequestLike) {
   return new URL(req.url ?? "/api/opensearch", `${protocol}://${host}`);
 }
 
-export default function handler(req: RequestLike, res: ResponseLike) {
+export default async function handler(req: RequestLike, res: ResponseLike) {
   const url = requestUrl(req);
+  const configParam = url.searchParams.get("b");
+  const config = safeConfig(configParam);
+  const descriptorOrigin =
+    (
+      configParam &&
+      (url.hostname === "joomp.link" || url.hostname.endsWith(".joomp.link"))
+    ) ?
+      `https://${await engineSlug(config)}.joomp.link`
+    : url.origin;
   res.setHeader(
     "content-type",
     "application/opensearchdescription+xml; charset=utf-8",
@@ -65,10 +74,6 @@ export default function handler(req: RequestLike, res: ResponseLike) {
   res.setHeader("cache-control", "private, no-store");
   res.setHeader("x-content-type-options", "nosniff");
   res.end(
-    descriptor(
-      safeConfig(url.searchParams.get("b")),
-      url.searchParams.get("n") ?? "joomp",
-      url.origin,
-    ),
+    descriptor(config, url.searchParams.get("n") ?? "joomp", descriptorOrigin),
   );
 }

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import RedirectMap from "../src/lib/redirectTree";
 import { DEFAULT_B } from "../src/lib/defaultConfig";
+import { engineSlug } from "../src/lib/engineIdentity";
 import { descriptor, default as handler } from "./opensearch";
 
 test("uses the engine name and host while preserving its config", () => {
@@ -34,9 +35,9 @@ test("escapes ampersands so the XML stays valid", () => {
   expect(xml).not.toMatch(/&(?!amp;|lt;|gt;|quot;|apos;)/);
 });
 
-test("node serverless handler falls back to the default config", () => {
+test("node serverless handler falls back to the default config", async () => {
   const res = nodeResponse();
-  handler(nodeRequest("/api/opensearch?b=not-valid&n=Work"), res);
+  await handler(nodeRequest("/api/opensearch?b=not-valid&n=Work"), res);
   expect(res.body).toContain(encodeURIComponent(DEFAULT_B));
   expect(res.body).toContain("<ShortName>Work</ShortName>");
   expect(res.headers.get("content-type")).toContain(
@@ -45,11 +46,24 @@ test("node serverless handler falls back to the default config", () => {
   expect(res.headers.get("cache-control")).toContain("private");
 });
 
-test("node serverless handler uses the forwarded request origin", () => {
+test("node serverless handler uses the forwarded request origin", async () => {
   const res = nodeResponse();
-  handler(nodeRequest("/api/opensearch?n=Personal"), res);
+  await handler(nodeRequest("/api/opensearch?n=Personal"), res);
   expect(res.body).toContain("https://j-example.joomp.link/ac");
   expect(res.body).toContain("<ShortName>Personal</ShortName>");
+});
+
+test("canonicalizes wildcard descriptor URLs to the config-derived host", async () => {
+  const b = RedirectMap.fromDSL(`!x ... => example.com?q={{{s}}}`).serialize();
+  const expectedSlug = await engineSlug(b);
+  const res = nodeResponse();
+  await handler(
+    nodeRequest(`/api/opensearch?b=${encodeURIComponent(b)}&n=Work`),
+    res,
+  );
+
+  expect(res.body).toContain(`https://${expectedSlug}.joomp.link/ac`);
+  expect(res.body).not.toContain("https://j-example.joomp.link/ac");
 });
 
 function nodeRequest(url: string) {

@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/solid-router";
 import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
-import { buildEngineEditUrl, normalizeEngineName } from "@/lib/engineIdentity";
+import {
+  buildEngineEditUrl,
+  clampEngineNameInput,
+  normalizeEngineName,
+} from "@/lib/engineIdentity";
 import RedirectMap from "@/lib/redirectTree";
 
 export const Route = createFileRoute("/edit")({
@@ -79,9 +83,10 @@ function DslEditor(props: { b: string; name?: string }) {
           <input
             id="engine-name"
             class="w-full border p-3 dark:border-neutral-400 dark:bg-neutral-900"
-            maxlength={16}
             value={name()}
-            onInput={(event) => setName(event.currentTarget.value)}
+            onInput={(event) =>
+              setName(clampEngineNameInput(event.currentTarget))
+            }
           />
         </div>
 
