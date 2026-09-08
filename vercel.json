@@ -6,6 +6,10 @@
       "destination": "/x.html"
     },
     {
+      "source": "/ac",
+      "destination": "/api/suggest"
+    },
+    {
       "source": "/((?!api/|_next/|favicon.ico|x\\.html|.*\\..*).*)",
       "destination": "/index.html"
     }
