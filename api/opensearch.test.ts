@@ -3,12 +3,13 @@ import RedirectMap from "../src/lib/redirectTree";
 import { DEFAULT_B } from "../src/lib/defaultConfig";
 import { descriptor, default as handler } from "./opensearch";
 
-test("bakes the given b into both result and suggestion URLs", () => {
+test("bakes the given b into both result and autocomplete URLs", () => {
   const b = RedirectMap.fromDSL(`!x ... => example.com?q={{{s}}}`).serialize();
   const xml = descriptor(b, "https://joomp.link");
   const eb = encodeURIComponent(b);
   expect(xml).toContain(`/x?q={searchTerms}&amp;b=${eb}`);
-  expect(xml).toContain(`/api/suggest?q={searchTerms}&amp;b=${eb}`);
+  expect(xml).toContain(`/ac?q={searchTerms}&amp;b=${eb}`);
+  expect(xml).not.toContain("/api/suggest");
 });
 
 test("escapes ampersands so the XML stays valid", () => {
@@ -27,7 +28,7 @@ test("node serverless handler falls back to the default config", () => {
 test("node serverless handler uses the forwarded request origin", () => {
   const res = nodeResponse();
   handler(nodeRequest("/api/opensearch"), res);
-  expect(res.body).toContain("https://joomp.test/api/suggest");
+  expect(res.body).toContain("https://joomp.test/ac");
 });
 
 function nodeRequest(url: string) {

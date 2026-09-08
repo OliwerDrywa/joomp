@@ -32,7 +32,7 @@ export function descriptor(config: string, origin: string) {
   <InputEncoding>UTF-8</InputEncoding>
   <Image width="16" height="16" type="image/x-icon">${xmlEscape(origin)}/favicon.ico</Image>
   <Url type="application/x-suggestions+json"
-       template="${xmlEscape(`${origin}/api/suggest?q={searchTerms}&b=${encodedConfig}`)}"/>
+       template="${xmlEscape(`${origin}/ac?q={searchTerms}&b=${encodedConfig}`)}"/>
   <Url type="text/html"
        template="${xmlEscape(`${origin}/x?q={searchTerms}&b=${encodedConfig}`)}"/>
 </OpenSearchDescription>

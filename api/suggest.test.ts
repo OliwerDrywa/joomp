@@ -111,7 +111,7 @@ test("fills remaining suggestions from DuckDuckGo's OpenSearch tuple after local
   try {
     const handler = (await import("./suggest")).default;
     const res = nodeResponse();
-    await handler(nodeRequest("/api/suggest?q=rain"), res);
+    await handler(nodeRequest("/ac?q=rain"), res);
 
     expect(JSON.parse(res.body)).toEqual(["rain", ["rainmeter", "rainbow"]]);
     expect(requests).toEqual(["https://ac.duckduckgo.com/ac/?q=rain&type=list"]);
@@ -128,7 +128,7 @@ test("also accepts DuckDuckGo's object response shape", async () => {
   try {
     const handler = (await import("./suggest")).default;
     const res = nodeResponse();
-    await handler(nodeRequest("/api/suggest?q=rain"), res);
+    await handler(nodeRequest("/ac?q=rain"), res);
 
     expect(JSON.parse(res.body)).toEqual(["rain", ["rain tomorrow", "rain radar"]]);
   } finally {
@@ -146,7 +146,7 @@ test("does not request DuckDuckGo for an empty query", async () => {
 
   try {
     const handler = (await import("./suggest")).default;
-    await handler(nodeRequest("/api/suggest?q="), nodeResponse());
+    await handler(nodeRequest("/ac?q="), nodeResponse());
     expect(calls).toBe(0);
   } finally {
     globalThis.fetch = originalFetch;

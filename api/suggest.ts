@@ -165,7 +165,7 @@ async function duckDuckGoSuggestions(query: string, limit: number): Promise<stri
 function requestUrl(req: RequestLike) {
   const protocol = String(req.headers?.["x-forwarded-proto"] ?? "https").split(",")[0];
   const host = String(req.headers?.host ?? "localhost");
-  return new URL(req.url ?? "/api/suggest", `${protocol}://${host}`);
+  return new URL(req.url ?? "/ac", `${protocol}://${host}`);
 }
 
 export default async function handler(req: RequestLike, res: ResponseLike) {
