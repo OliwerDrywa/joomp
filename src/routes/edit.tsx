@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/solid-router";
 import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
+import { buildEngineEditUrl, normalizeEngineName } from "@/lib/engineIdentity";
 import RedirectMap from "@/lib/redirectTree";
 
 export const Route = createFileRoute("/edit")({
@@ -8,59 +9,51 @@ export const Route = createFileRoute("/edit")({
 
 function EditPage() {
   const params = Route.useSearch();
-  return <DslEditor b={params().b} />;
+  return <DslEditor b={params().b} name={params().n} />;
 }
 
-/**
- * Expose THIS user's config to Chrome's search-engine discovery by pointing
- * <link rel="search"> at the dynamic descriptor carrying their `b`. Chrome
- * reads this from the live DOM, so a per-user link here is enough — no
- * per-user index.html needed.
- */
-function useSearchLink(b: () => string) {
+function useSearchLink(b: () => string, name: () => string) {
   const link = document.createElement("link");
   link.rel = "search";
   link.type = "application/opensearchdescription+xml";
-  link.title = "joomp";
   document.head.appendChild(link);
   createEffect(() => {
-    link.href = `/api/opensearch?b=${encodeURIComponent(b())}`;
+    const normalizedName = normalizeEngineName(name());
+    link.title = normalizedName;
+    link.href = `/api/opensearch?b=${encodeURIComponent(b())}&n=${encodeURIComponent(normalizedName)}`;
   });
   onCleanup(() => link.remove());
 }
 
-function DslEditor(props: { b: string }) {
-  const navigate = Route.useNavigate();
-
-  // Point search-engine discovery at this user's saved config.
-  useSearchLink(() => props.b);
-
-  // Parse initial tree from compressed param
-  const initialDsl = createMemo(() => {
-    return RedirectMap.deserialize(props.b).toDSL();
-  });
-
+function DslEditor(props: { b: string; name?: string }) {
+  const initialDsl = createMemo(() => RedirectMap.deserialize(props.b).toDSL());
+  const initialName = createMemo(() => normalizeEngineName(props.name));
   const [dsl, setDsl] = createSignal(initialDsl());
+  const [name, setName] = createSignal(initialName());
   const [error, setError] = createSignal<string | null>(null);
 
-  // Update dsl when props.b changes
+  useSearchLink(() => props.b, initialName);
+
   createEffect(() => {
     setDsl(initialDsl());
+    setName(initialName());
   });
 
-  // Validate and compute compressed output
   const newPropsB = createMemo(() => {
     try {
       const tree = RedirectMap.fromDSL(dsl());
       setError(null);
       return tree.serialize();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Invalid syntax");
-      return props.b; // Return original on error
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Invalid syntax");
+      return props.b;
     }
   });
 
-  const hasChanges = createMemo(() => newPropsB() !== props.b && !error());
+  const normalizedName = createMemo(() => normalizeEngineName(name()));
+  const hasChanges = createMemo(
+    () => newPropsB() !== props.b || normalizedName() !== initialName(),
+  );
 
   return (
     <>
@@ -68,25 +61,40 @@ function DslEditor(props: { b: string }) {
 
       <form
         class="flex flex-col gap-4"
-        onsubmit={(e) => {
-          e.preventDefault();
+        onsubmit={async (event) => {
+          event.preventDefault();
           if (error()) return;
-
-          navigate({
-            to: "/edit",
-            search: { b: newPropsB() },
-          });
+          const next = await buildEngineEditUrl(
+            window.location.href,
+            newPropsB(),
+            normalizedName(),
+          );
+          window.location.assign(next);
         }}
       >
         <div class="flex flex-col gap-2">
-          <label class="text-sm text-neutral-500">
+          <label class="text-sm text-neutral-500" for="engine-name">
+            Search engine name (16 characters maximum)
+          </label>
+          <input
+            id="engine-name"
+            class="w-full border p-3 dark:border-neutral-400 dark:bg-neutral-900"
+            maxlength={16}
+            value={name()}
+            onInput={(event) => setName(event.currentTarget.value)}
+          />
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label class="text-sm text-neutral-500" for="command-definitions">
             Command definitions (<code>!cmd ...</code> = with text,{" "}
             <code>!cmd</code> = exact match)
           </label>
           <textarea
+            id="command-definitions"
             class="h-96 w-full resize-y border p-3 font-mono text-sm text-nowrap dark:border-neutral-400 dark:bg-neutral-900"
             value={dsl()}
-            onInput={(e) => setDsl(e.currentTarget.value)}
+            onInput={(event) => setDsl(event.currentTarget.value)}
             spellcheck={false}
           />
           {error() && <div class="text-sm text-red-500">Error: {error()}</div>}
@@ -97,7 +105,10 @@ function DslEditor(props: { b: string }) {
             type="button"
             class="ms-auto cursor-pointer border p-2 disabled:cursor-not-allowed disabled:text-neutral-400 dark:border-neutral-400"
             disabled={!hasChanges()}
-            onClick={() => setDsl(initialDsl())}
+            onClick={() => {
+              setDsl(initialDsl());
+              setName(initialName());
+            }}
           >
             Undo
           </button>
@@ -105,9 +116,9 @@ function DslEditor(props: { b: string }) {
           <button
             type="submit"
             class="cursor-pointer border p-2 disabled:cursor-not-allowed disabled:text-neutral-400 dark:border-neutral-400"
-            disabled={!hasChanges()}
+            disabled={!hasChanges() || Boolean(error())}
           >
-            Save to URL
+            Save engine
           </button>
         </fieldset>
       </form>
@@ -125,12 +136,11 @@ function UrlPreview(props: { url: string }) {
 
       <button
         class="grid aspect-square place-content-center bg-blue-500"
-        onClick={async (e) => {
-          const img = e.currentTarget.firstChild;
+        onClick={async (event) => {
+          const img = event.currentTarget.firstChild;
           if (!img || !("src" in img)) throw new Error("<img/> not found");
 
           await navigator.clipboard.writeText(location.origin + props.url);
-
           img.src = "/clipboard-check.svg";
           setTimeout(() => (img.src = "/clipboard.svg"), 2000);
         }}

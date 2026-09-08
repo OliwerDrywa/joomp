@@ -13,6 +13,7 @@ export const Route = createRootRouteWithContext()({
   component: RootComponent,
   validateSearch: type({
     "q?": "string",
+    "n?": "string",
     b: `string = '${DEFAULT_B}'`,
   }),
 });
